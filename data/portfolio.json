@@ -1,0 +1,190 @@
+{
+    "tier_config": {
+        "tier1_core": {
+            "description": "最高優先度、フル分析（テクニカル + 週足確認 + ファンダ + セクター相対強度）",
+            "tickers": ["NVDA", "MSFT", "GOOGL", "AMZN", "AAPL", "META", "TSM", "ASML", "CRWD", "CCJ"],
+            "analysis_depth": "full",
+            "notification": "all"
+        },
+        "tier2_watch": {
+            "description": "標準分析（テクニカル + ニュース）、確信度80%以上でのみ通知",
+            "tickers": ["AMD", "AVGO", "CRM", "SNOW", "PANW", "ZS", "VRT", "LMT", "RKLB", "LLY", "CRSP", "ISRG", "IONQ", "SQ", "NOW", "NFLX", "UBER", "NEE", "COIN", "PLTR", "MU", "BE", "AVAV", "KTOS"],
+            "analysis_depth": "standard",
+            "notification": "high_conviction_only",
+            "conviction_threshold": 12
+        },
+        "tier3_archive": {
+            "description": "軽量監視（価格・出来高のみ）、週次レポートにのみ含める",
+            "analysis_depth": "light",
+            "notification": "weekly_only"
+        }
+    },
+    "monitoring_themes": [
+        {
+            "name": "Market_Index",
+            "tier": 1,
+            "priority": 0,
+            "tickers": [
+                "SPY", "QQQ", "IWM", "DIA", "VIX"
+            ],
+            "description": "市場インデックスETF・VIX",
+            "rationale": "市場全体の動向把握、リスク管理の基盤、ヘッジ判断に必須"
+        },
+        {
+            "name": "Sector_ETFs",
+            "tier": 1,
+            "priority": 0,
+            "tickers": [
+                "XLK", "XLF", "XLE", "XAR", "SMH", "IGV", "XBI", "DRNZ"
+            ],
+            "description": "セクター別ETF（モメンタム検出用）",
+            "rationale": "セクターローテーション検出、個別銘柄シグナルの確認に使用"
+        },
+        {
+            "name": "AI_Semiconductor",
+            "tier": 1,
+            "priority": 1,
+            "tickers": [
+                "NVDA", "AMD", "AVGO", "SMH", "ASML", "TSM", "MU", "INTC",
+                "MRVL", "ARM", "KLAC", "LRCX", "AMAT", "QCOM", "ON"
+            ],
+            "description": "人工知能とそれを支える半導体",
+            "rationale": "最も確実性の高いメガトレンド。企業のAI投資は継続"
+        },
+        {
+            "name": "Cloud_AI_Infrastructure",
+            "tier": 1,
+            "priority": 2,
+            "tickers": [
+                "MSFT", "GOOGL", "AMZN", "CRM", "ORCL", "SNOW", "META", "DDOG", "MDB"
+            ],
+            "description": "クラウド・AIインフラストラクチャ",
+            "rationale": "AIワークロード需要の受益者。エンタープライズAI展開の基盤"
+        },
+        {
+            "name": "Cybersecurity",
+            "tier": 2,
+            "priority": 3,
+            "tickers": [
+                "CRWD", "FTNT", "ZS", "NET", "PANW", "S", "OKTA"
+            ],
+            "description": "サイバーセキュリティ",
+            "rationale": "AI時代のセキュリティ需要増加。ゼロトラストアーキテクチャの普及"
+        },
+        {
+            "name": "Energy_Infrastructure",
+            "tier": 2,
+            "priority": 4,
+            "tickers": [
+                "CCJ", "OKLO", "VRT", "PWR", "CEG", "VST", "NRG", "ETN", "BE", "FSLR"
+            ],
+            "description": "AIとデータセンター稼働に不可欠な電力と冷却インフラ",
+            "rationale": "AI・量子は莫大な電力消費。原発（SMR）、送電網、DC冷却、燃料電池が必須"
+        },
+        {
+            "name": "Defense_Space",
+            "tier": 2,
+            "priority": 5,
+            "tickers": [
+                "LMT", "RTX", "RKLB", "ASTS", "NOC", "GD", "BA", "PLTR", "KTOS", "AVAV"
+            ],
+            "description": "地政学リスクと宇宙開発・ドローン",
+            "rationale": "各国防衛費増加、宇宙の商業化、ドローン戦術の主流化。地政学的緊張継続"
+        },
+        {
+            "name": "Bio_Genomics",
+            "tier": 2,
+            "priority": 6,
+            "tickers": [
+                "LLY", "CRSP", "VRTX", "XBI", "MRNA", "REGN", "ABBV", "PFE", "UNH"
+            ],
+            "description": "AI創薬とゲノム編集による医療革命",
+            "rationale": "AI×バイオは次の巨大テーマ。金利低下局面で爆発的成長しやすい"
+        },
+        {
+            "name": "Robotics_Automation",
+            "tier": 3,
+            "priority": 7,
+            "tickers": [
+                "ISRG", "PATH", "TSLA", "BOTZ", "ABB", "ROK", "TER"
+            ],
+            "description": "労働力不足を解消する物理ロボットと自動化",
+            "rationale": "先進国の労働力不足は構造的問題"
+        },
+        {
+            "name": "Quantum_Computing",
+            "tier": 3,
+            "priority": 8,
+            "tickers": [
+                "IONQ", "RGTI", "QBTS", "GOOGL"
+            ],
+            "description": "次世代計算機。ハイリスク・ハイリターン",
+            "rationale": "萌芽期だが、ブレイクスルーで爆発的成長の可能性"
+        },
+        {
+            "name": "RareEarth_Materials",
+            "tier": 3,
+            "priority": 9,
+            "tickers": [
+                "MP", "LIT", "COPX", "ALB", "LAC", "VALE"
+            ],
+            "description": "EVやハイテク製品に必須の素材（レアアース、リチウム、銅）",
+            "rationale": "中国依存からの脱却、素材インフレ"
+        },
+        {
+            "name": "CleanEnergy_EV",
+            "tier": 3,
+            "priority": 10,
+            "tickers": [
+                "TSLA", "ENPH", "NEE", "ICLN", "RIVN", "FSLR", "PLUG", "RUN"
+            ],
+            "description": "脱炭素・再生可能エネルギー",
+            "rationale": "IRA法案による補助金、長期トレンド"
+        },
+        {
+            "name": "Fintech_Payments",
+            "tier": 3,
+            "priority": 11,
+            "tickers": [
+                "SQ", "PYPL", "COIN", "AFRM", "SOFI", "V", "MA", "NU"
+            ],
+            "description": "フィンテック・決済",
+            "rationale": "デジタル金融の成長、仮想通貨エコシステム拡大"
+        },
+        {
+            "name": "Consumer_Tech",
+            "tier": 3,
+            "priority": 12,
+            "tickers": [
+                "AAPL", "NFLX", "DIS", "UBER", "ABNB", "SHOP", "SPOT"
+            ],
+            "description": "消費者向けテクノロジー・プラットフォーム",
+            "rationale": "デジタル消費拡大、プラットフォーム経済の成長"
+        },
+        {
+            "name": "Enterprise_SaaS",
+            "tier": 3,
+            "priority": 13,
+            "tickers": [
+                "NOW", "WDAY", "TEAM", "ADBE", "HUBS", "ZM", "DOCU"
+            ],
+            "description": "エンタープライズSaaS・生産性向上ツール",
+            "rationale": "企業のデジタル変革需要、サブスクリプションモデルの安定収益"
+        }
+    ],
+    "active_holdings": [],
+    "watchlist": [],
+    "investment_strategy": {
+        "max_themes_invested": 3,
+        "selection_method": "momentum_ranking",
+        "rebalance_frequency": "weekly",
+        "theme_rotation_enabled": true
+    },
+    "momentum_weights": {
+        "price_momentum_1m": 0.3,
+        "price_momentum_3m": 0.2,
+        "news_sentiment": 0.2,
+        "sector_rotation": 0.15,
+        "fundamental_strength": 0.15
+    }
+}

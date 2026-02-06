@@ -1,0 +1,68 @@
+{
+  "portfolio_name": "メインポートフォリオ",
+  "currency": "USD",
+  "last_updated": "2026-01-22 18:49:58",
+  "total_invested": 6350.0,
+  "holdings": [
+    {
+      "ticker": "NVDA",
+      "theme": "AI_Semiconductor",
+      "shares": 10,
+      "average_price": 450.0,
+      "purchase_date": "2026-01-22",
+      "notes": "AI半導体リーダー"
+    },
+    {
+      "ticker": "MSFT",
+      "theme": "AI_Semiconductor",
+      "shares": 5,
+      "average_price": 370.0,
+      "purchase_date": "2026-01-22",
+      "notes": "クラウド＋AI統合"
+    }
+  ],
+  "watchlist": [
+    {"ticker": "AMD", "theme": "AI_Semiconductor", "reason": "AIチップ需要増", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "AVGO", "theme": "AI_Semiconductor", "reason": "カスタムAIチップ", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "SMH", "theme": "AI_Semiconductor", "reason": "半導体ETF", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "CCJ", "theme": "Energy_Infrastructure", "reason": "原発/ウラン", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "OKLO", "theme": "Energy_Infrastructure", "reason": "SMR原発", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "VRT", "theme": "Energy_Infrastructure", "reason": "データセンター冷却", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "PWR", "theme": "Energy_Infrastructure", "reason": "電力インフラ", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "LMT", "theme": "Defense_Space", "reason": "防衛大手", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "RTX", "theme": "Defense_Space", "reason": "防衛・航空", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "RKLB", "theme": "Defense_Space", "reason": "宇宙ロケット", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "ASTS", "theme": "Defense_Space", "reason": "宇宙通信", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "PANW", "theme": "Defense_Space", "reason": "サイバーセキュリティ", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "LLY", "theme": "Bio_Genomics", "reason": "肥満薬リーダー", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "CRSP", "theme": "Bio_Genomics", "reason": "CRISPR遺伝子編集", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "VRTX", "theme": "Bio_Genomics", "reason": "バイオテック", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "XBI", "theme": "Bio_Genomics", "reason": "バイオETF", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "ISRG", "theme": "Robotics_Automation", "reason": "手術ロボット", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "PATH", "theme": "Robotics_Automation", "reason": "RPA", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "TSLA", "theme": "Robotics_Automation", "reason": "EV+ロボット", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "BOTZ", "theme": "Robotics_Automation", "reason": "ロボットETF", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "IONQ", "theme": "Quantum_Computing", "reason": "量子コンピュータ", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "RGTI", "theme": "Quantum_Computing", "reason": "量子コンピュータ", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "QBTS", "theme": "Quantum_Computing", "reason": "量子コンピュータ", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "MP", "theme": "RareEarth_Materials", "reason": "レアアース", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "LIT", "theme": "RareEarth_Materials", "reason": "リチウムETF", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "ENPH", "theme": "CleanEnergy_EV", "reason": "ソーラーインバーター", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "NEE", "theme": "CleanEnergy_EV", "reason": "再エネ電力", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "AAPL", "theme": "Tech_Leaders", "reason": "テック大手", "target_entry_price": 0, "added_date": "2026-01-27"},
+    {"ticker": "SPY", "theme": "Benchmark", "reason": "S&P500 ETF", "target_entry_price": 0, "added_date": "2026-01-27"}
+  ],
+  "risk_management": {
+    "max_position_size_pct": 20,
+    "max_sector_exposure_pct": 40,
+    "stop_loss_pct": -8,
+    "take_profit_pct": 20,
+    "max_daily_loss_pct": -2
+  },
+  "trading_rules": {
+    "min_conviction_score": 7,
+    "min_risk_reward_ratio": 2.0,
+    "max_open_positions": 10,
+    "require_approval": true
+  }
+}
