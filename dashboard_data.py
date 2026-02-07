@@ -45,6 +45,7 @@ DB_PATH = PROJECT_ROOT / "data" / "ai_investor.db"
 
 def _connect():
     conn = sqlite3.connect(str(DB_PATH), timeout=30)
+    conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
