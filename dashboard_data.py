@@ -23,7 +23,7 @@ PROJECT_ROOT = Path(__file__).parent
 DB_PATH = PROJECT_ROOT / "data" / "ai_investor.db"
 PORTFOLIO_CONFIG = PROJECT_ROOT / "data" / "portfolio.json"
 HOLDINGS_CONFIG = PROJECT_ROOT / "data" / "my_holdings.json"
-ENV_PATH = PROJECT_ROOT / ".env"
+ENV_PATH = PROJECT_ROOT / "data" / ".env"
 
 if ENV_PATH.exists():
     load_dotenv(ENV_PATH)
@@ -170,8 +170,8 @@ def build_daily_portfolio(start_date: str = PHASE3_START) -> pd.DataFrame:
                 for ticker in all_tickers:
                     if ticker in raw["Close"].columns:
                         price_data[ticker] = raw["Close"][ticker]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"価格データ取得エラー: {e}")
 
     # --- 日次ポートフォリオ計算 ---
     rows = []
@@ -419,10 +419,15 @@ def _calc_max_drawdown(
     # フォールバック: トレードの累積損益からDD推定
     if len(trades_df) == 0:
         return 0.0
-    cumulative = trades_df["profit_loss"].cumsum()
-    peak = cumulative.cummax()
-    drawdown = peak - cumulative
-    return float(drawdown.max() / max(peak.max(), 1) * 100) if peak.max() > 0 else 0.0
+    closed = trades_df[trades_df["profit_loss"].notna()]
+    if len(closed) == 0:
+        return 0.0
+    cumulative = closed["profit_loss"].cumsum()
+    # 初期資本ベースのポートフォリオ価値シリーズ
+    portfolio_values = INITIAL_CAPITAL + cumulative
+    peak = portfolio_values.cummax()
+    drawdown_pct = (peak - portfolio_values) / peak * 100
+    return float(drawdown_pct.max())
 
 
 def get_go_nogo_verdict(kpi: dict) -> dict:
@@ -472,7 +477,7 @@ def _calc_uptime(conn: sqlite3.Connection, start_date: str) -> float:
     )
     if len(runs) == 0:
         return 100.0
-    completed = len(runs[runs["status"].isin(["completed", "running"])])
+    completed = len(runs[runs["status"] == "completed"])
     return completed / len(runs) * 100
 
 
@@ -500,6 +505,63 @@ def get_positions() -> pd.DataFrame:
         return df
     finally:
         conn.close()
+
+
+def get_open_positions_from_trades() -> list[dict]:
+    """tradesテーブルのOPENレコードからポジションを再構築する。
+
+    positionsテーブルが空、かつAlpaca APIが使えない場合のフォールバック。
+    yfinanceで現在価格を取得して含み損益を計算する。
+    """
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            "SELECT ticker, shares, entry_price, entry_timestamp "
+            "FROM trades WHERE status = 'OPEN' AND action = 'BUY'"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        return []
+
+    result = []
+    tickers = [r[0] for r in rows]
+
+    # yfinanceで現在価格を一括取得
+    current_prices: dict[str, float] = {}
+    price_stale = False
+    try:
+        for t in tickers:
+            info = yf.Ticker(t)
+            price = info.fast_info.get("lastPrice")
+            if price:
+                current_prices[t] = float(price)
+    except Exception as e:
+        logger.warning(f"yfinance価格取得失敗: {e}")
+        price_stale = True
+
+    if not current_prices:
+        price_stale = True
+
+    for ticker, shares, entry_price, entry_ts in rows:
+        cur = current_prices.get(ticker, entry_price)
+        pnl = (cur - entry_price) * shares
+        pnl_pct = ((cur - entry_price) / entry_price * 100) if entry_price else 0
+        result.append(
+            {
+                "ticker": ticker,
+                "shares": int(shares),
+                "entry_price": float(entry_price),
+                "current_price": float(cur),
+                "market_value": float(cur * shares),
+                "unrealized_pnl": float(pnl),
+                "unrealized_pnl_pct": float(pnl_pct),
+                "price_stale": price_stale
+                or ticker not in current_prices,
+            }
+        )
+    return result
 
 
 def get_manual_holdings() -> list[dict]:
@@ -571,15 +633,17 @@ def get_alpaca_positions() -> list[dict]:
         positions = client.get_all_positions()
         result = []
         for p in positions:
-            result.append({
-                "ticker": p.symbol,
-                "shares": int(float(p.qty)),
-                "entry_price": float(p.avg_entry_price),
-                "current_price": float(p.current_price),
-                "market_value": float(p.market_value),
-                "unrealized_pnl": float(p.unrealized_pl),
-                "unrealized_pnl_pct": float(p.unrealized_plpc) * 100,
-            })
+            result.append(
+                {
+                    "ticker": p.symbol,
+                    "shares": int(float(p.qty)),
+                    "entry_price": float(p.avg_entry_price),
+                    "current_price": float(p.current_price),
+                    "market_value": float(p.market_value),
+                    "unrealized_pnl": float(p.unrealized_pl),
+                    "unrealized_pnl_pct": float(p.unrealized_plpc) * 100,
+                }
+            )
         return result
     except Exception as e:
         logger.warning(f"Alpaca positions fetch failed: {e}")
@@ -656,7 +720,7 @@ def get_trade_summary(trades_df: pd.DataFrame) -> dict:
         }
 
     winners = closed[closed["profit_loss"] > 0]
-    losers = closed[closed["profit_loss"] <= 0]
+    losers = closed[closed["profit_loss"] < 0]
     total_profit = winners["profit_loss"].sum() if len(winners) > 0 else 0.0
     total_loss = abs(losers["profit_loss"].sum()) if len(losers) > 0 else 0.0
 
@@ -665,17 +729,23 @@ def get_trade_summary(trades_df: pd.DataFrame) -> dict:
         "wins": len(winners),
         "losses": len(losers),
         "win_rate": round(len(winners) / len(closed) * 100, 1),
-        "profit_factor": round(total_profit / total_loss, 2) if total_loss > 0 else 99.99,
-        "avg_profit_pct": round(winners["profit_loss_pct"].mean(), 2)
-        if len(winners) > 0
-        else 0.0,
-        "avg_loss_pct": round(losers["profit_loss_pct"].mean(), 2)
-        if len(losers) > 0
-        else 0.0,
+        "profit_factor": (
+            round(total_profit / total_loss, 2) if total_loss > 0 else 99.99
+        ),
+        "avg_profit_pct": (
+            round(winners["profit_loss_pct"].mean(), 2) if len(winners) > 0 else 0.0
+        ),
+        "avg_loss_pct": (
+            round(losers["profit_loss_pct"].mean(), 2) if len(losers) > 0 else 0.0
+        ),
         "largest_win_pct": round(closed["profit_loss_pct"].max(), 2),
         "largest_loss_pct": round(closed["profit_loss_pct"].min(), 2),
         "avg_holding_days": round(
-            closed["holding_days"].mean() if closed["holding_days"].notna().any() else 0,
+            (
+                closed["holding_days"].mean()
+                if closed["holding_days"].notna().any()
+                else 0
+            ),
             1,
         ),
         "total_pnl": round(closed["profit_loss"].sum(), 2),
@@ -686,7 +756,12 @@ def get_trade_patterns(trades_df: pd.DataFrame) -> dict:
     """テーマ別・戦略別・確信度別・曜日別のパターン分析"""
     closed = trades_df[trades_df["status"] == "CLOSED"].copy()
     if len(closed) == 0:
-        return {"by_theme": {}, "by_strategy": {}, "by_conviction": {}, "by_weekday": {}}
+        return {
+            "by_theme": {},
+            "by_strategy": {},
+            "by_conviction": {},
+            "by_weekday": {},
+        }
 
     theme_map = _build_ticker_theme_map()
     closed["theme"] = closed["ticker"].map(theme_map).fillna("Unknown")
@@ -798,7 +873,7 @@ def get_signal_funnel(start_date: str = PHASE3_START) -> dict:
         expired = status_counts.get("expired", 0)
         cancelled = status_counts.get("cancelled", 0)
 
-        # 実行されたシグナルの勝敗
+        # 実行されたシグナルの勝敗（signal_trackingが未対応の場合tradesから推定）
         tracking = pd.read_sql_query(
             "SELECT outcome, COUNT(*) as cnt FROM signal_tracking "
             "WHERE outcome IN ('WIN','LOSS') GROUP BY outcome",
@@ -811,6 +886,21 @@ def get_signal_funnel(start_date: str = PHASE3_START) -> dict:
                 wins = r["cnt"]
             elif r["outcome"] == "LOSS":
                 losses = r["cnt"]
+
+        # signal_trackingが空の場合、CLOSEDトレードから推定
+        if wins == 0 and losses == 0:
+            closed_trades = conn.execute(
+                "SELECT COUNT(*) FROM trades "
+                "WHERE status='CLOSED' AND profit_loss > 0 AND entry_timestamp >= ?",
+                (start_date,),
+            ).fetchone()
+            wins = closed_trades[0] if closed_trades else 0
+            closed_losses = conn.execute(
+                "SELECT COUNT(*) FROM trades "
+                "WHERE status='CLOSED' AND profit_loss < 0 AND entry_timestamp >= ?",
+                (start_date,),
+            ).fetchone()
+            losses = closed_losses[0] if closed_losses else 0
 
         return {
             "total": total,
@@ -906,9 +996,12 @@ def get_system_health_summary(runs_df: pd.DataFrame) -> dict:
         "failed": failed,
         "interrupted": interrupted,
         "success_rate": round(completed / len(runs_df) * 100, 1),
-        "avg_duration_min": round(runs_df["duration_min"].mean(), 1)
-        if "duration_min" in runs_df.columns and runs_df["duration_min"].notna().any()
-        else 0.0,
+        "avg_duration_min": (
+            round(runs_df["duration_min"].mean(), 1)
+            if "duration_min" in runs_df.columns
+            and runs_df["duration_min"].notna().any()
+            else 0.0
+        ),
         "total_errors": int(runs_df["errors_count"].sum() or 0),
         "total_signals": int(runs_df["signals_detected"].sum() or 0),
         "total_trades_executed": int(runs_df["trades_executed"].sum() or 0),

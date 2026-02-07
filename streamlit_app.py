@@ -1,15 +1,21 @@
 """
 AI Investor ダッシュボード
+
+起動:
+    cd AI_Investor
+    .venv/bin/streamlit run 02_src/11_monitoring/streamlit_dashboard.py
 """
 
+import logging
 from datetime import datetime
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
+import dashboard_data as _dm
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-
-import dashboard_data as _dm
 
 st.set_page_config(page_title="AI Investor", layout="wide")
 
@@ -281,7 +287,18 @@ details[open] > .dd-summary::before { transform: rotate(90deg); }
     display: grid; grid-template-columns: 1fr 1fr;
     gap: 0.1rem; padding: 0.2rem 0.5rem;
 }
-@media (max-width: 600px) { .spec-grid { grid-template-columns: 1fr; } }
+@media (max-width: 768px) {
+    .spec-grid { grid-template-columns: 1fr; }
+    .cl-label { width: auto; min-width: 3.5rem; font-size: 0.7rem; }
+    .cl-gap { width: auto; min-width: 4rem; font-size: 0.7rem; }
+    .wf-step { flex-direction: column; }
+    .wf-right { min-width: auto; text-align: left; margin-top: 0.3rem; }
+    .tl-date { width: 4rem; font-size: 0.7rem; }
+    .tl-nums { font-size: 0.65rem; }
+    .wf-tip { width: 200px; font-size: 0.68rem; left: 0; transform: none; }
+    .pos-row { flex-direction: column; gap: 0.2rem; }
+    .split-row { flex-direction: column; gap: 0.5rem; }
+}
 .spec-row {
     display: flex; justify-content: space-between; align-items: baseline;
     padding: 0.4rem 0.5rem; border-bottom: 1px solid #f8fafc;
@@ -380,23 +397,33 @@ def show_analysis_dialog():
             )
 
     if insights:
-        items = "".join(f"<div style='margin-bottom:0.4rem'>- {i}</div>" for i in insights)
-        st.markdown(f'<div class="dlg-insight"><b>問題点</b>{items}</div>', unsafe_allow_html=True)
+        items = "".join(
+            f"<div style='margin-bottom:0.4rem'>- {i}</div>" for i in insights
+        )
+        st.markdown(
+            f'<div class="dlg-insight"><b>問題点</b>{items}</div>',
+            unsafe_allow_html=True,
+        )
 
     # ── 銘柄別パフォーマンス ──
     closed = tr[tr["status"] == "CLOSED"]
     if len(closed) > 0:
-        st.markdown('<div class="dlg-section">銘柄別パフォーマンス</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="dlg-section">銘柄別パフォーマンス</div>',
+            unsafe_allow_html=True,
+        )
         ticker_stats = []
         for ticker, grp in closed.groupby("ticker"):
             wins = len(grp[grp["profit_loss"] > 0])
-            ticker_stats.append({
-                "ticker": ticker,
-                "trades": len(grp),
-                "wins": wins,
-                "pnl": grp["profit_loss"].sum(),
-                "avg_pct": grp["profit_loss_pct"].mean(),
-            })
+            ticker_stats.append(
+                {
+                    "ticker": ticker,
+                    "trades": len(grp),
+                    "wins": wins,
+                    "pnl": grp["profit_loss"].sum(),
+                    "avg_pct": grp["profit_loss_pct"].mean(),
+                }
+            )
         ticker_stats.sort(key=lambda x: x["pnl"])
 
         html = ""
@@ -434,7 +461,9 @@ def show_analysis_dialog():
     actions = []
     if summary["win_rate"] < 50:
         actions.append("シグナルのフィルタリング強化（確信度の閾値引き上げ）")
-    if summary["avg_loss_pct"] != 0 and abs(summary["avg_loss_pct"]) > abs(summary["avg_profit_pct"]):
+    if summary["avg_loss_pct"] != 0 and abs(summary["avg_loss_pct"]) > abs(
+        summary["avg_profit_pct"]
+    ):
         actions.append("ストップロスを現在より浅く設定（損切りを早める）")
     if summary["profit_factor"] < 1.0:
         actions.append("利益確定の目標幅を拡大（テイクプロフィットの見直し）")
@@ -474,6 +503,11 @@ def load_alpaca_positions():
 
 
 @st.cache_data(ttl=120, show_spinner=False)
+def load_positions_from_trades():
+    return _dm.get_open_positions_from_trades()
+
+
+@st.cache_data(ttl=120, show_spinner=False)
 def load_pipeline_status():
     return _dm.get_todays_pipeline_status()
 
@@ -501,6 +535,10 @@ capital = _dm.INITIAL_CAPITAL
 alpaca_pf = load_alpaca_portfolio()
 alpaca_positions = load_alpaca_positions()
 
+# Alpaca APIが使えない場合、tradesテーブルからポジションを再構築
+if not alpaca_positions:
+    alpaca_positions = load_positions_from_trades()
+
 # ============================================================
 # サイドバー
 # ============================================================
@@ -520,7 +558,7 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    if st.button("更新", use_container_width=True):
+    if st.button("更新", width="stretch"):
         st.cache_data.clear()
         st.rerun()
 
@@ -629,27 +667,27 @@ with tab_overview:
                 p_sign = "+" if p_pnl >= 0 else ""
                 pos_items += (
                     f'<div class="pos-row">'
-                    f'<div>'
+                    f"<div>"
                     f'<span style="font-weight:700; color:#0f172a; font-size:0.92rem">{p["ticker"]}</span>'
                     f'<span style="color:#94a3b8; margin-left:0.4rem; font-size:0.78rem">'
                     f'{p["shares"]}株 &times; ${p["current_price"]:.2f}</span>'
                     f'<span style="color:#94a3b8; font-size:0.68rem; margin-left:0.25rem">'
                     f'(取得${p["entry_price"]:.2f})</span>'
-                    f'</div>'
-                    f'<div>'
+                    f"</div>"
+                    f"<div>"
                     f'<span class="{p_c}" style="font-weight:700; font-size:0.92rem">'
-                    f'{p_sign}${p_pnl:,.0f}</span>'
+                    f"{p_sign}${p_pnl:,.0f}</span>"
                     f'<span class="{p_c}" style="font-size:0.78rem; margin-left:0.2rem">'
-                    f'({p_sign}{p_pct:.1f}%)</span>'
-                    f'</div>'
-                    f'</div>'
+                    f"({p_sign}{p_pct:.1f}%)</span>"
+                    f"</div>"
+                    f"</div>"
                 )
             pos_html = (
                 f'<div style="margin-top:1rem; padding:0 0.5rem">'
                 f'<div style="font-size:0.65rem; color:#94a3b8; letter-spacing:0.06em; '
                 f'font-weight:600; margin-bottom:0.2rem; padding-left:0.4rem">保有銘柄</div>'
                 f'<div style="background:#f8fafc; border-radius:10px; padding:0.3rem 0.6rem">'
-                f'{pos_items}</div></div>'
+                f"{pos_items}</div></div>"
             )
         else:
             pos_html = (
@@ -726,23 +764,30 @@ with tab_overview:
 
         fig.add_trace(
             go.Scatter(
-                x=daily["date"], y=[capital] * len(daily),
-                mode="lines", line=dict(width=0), showlegend=False,
+                x=daily["date"],
+                y=[capital] * len(daily),
+                mode="lines",
+                line=dict(width=0),
+                showlegend=False,
                 hoverinfo="skip",
             )
         )
         fig.add_trace(
             go.Scatter(
-                x=daily["date"], y=daily["total"],
+                x=daily["date"],
+                y=daily["total"],
                 fill="tonexty",
                 fillcolor="rgba(225,29,72,0.04)",
-                mode="none", showlegend=False, hoverinfo="skip",
+                mode="none",
+                showlegend=False,
+                hoverinfo="skip",
             )
         )
 
         fig.add_trace(
             go.Scatter(
-                x=daily["date"], y=daily["total"],
+                x=daily["date"],
+                y=daily["total"],
                 name="ポートフォリオ",
                 mode="lines+markers",
                 line=dict(color=P, width=2.5),
@@ -754,7 +799,8 @@ with tab_overview:
         if len(spy) > 0:
             fig.add_trace(
                 go.Scatter(
-                    x=spy["date"], y=spy["spy_total"],
+                    x=spy["date"],
+                    y=spy["spy_total"],
                     name="SPY",
                     mode="lines",
                     line=dict(color="#94a3b8", width=1.5, dash="dash"),
@@ -770,15 +816,24 @@ with tab_overview:
                 buy_rows["entry_timestamp"], format="mixed"
             ).dt.normalize()
             merged = buy_rows.merge(
-                daily[["date", "total"]], left_on="entry_date", right_on="date", how="inner"
+                daily[["date", "total"]],
+                left_on="entry_date",
+                right_on="date",
+                how="inner",
             )
             if len(merged) > 0:
                 fig.add_trace(
                     go.Scatter(
-                        x=merged["date"], y=merged["total"],
-                        name="買い", mode="markers",
-                        marker=dict(symbol="triangle-up", size=12, color=W,
-                                    line=dict(width=1.5, color="#fff")),
+                        x=merged["date"],
+                        y=merged["total"],
+                        name="買い",
+                        mode="markers",
+                        marker=dict(
+                            symbol="triangle-up",
+                            size=12,
+                            color=W,
+                            line=dict(width=1.5, color="#fff"),
+                        ),
                         hovertemplate="%{x|%m/%d} 買い %{text}<extra></extra>",
                         text=merged["ticker"],
                         showlegend=False,
@@ -793,15 +848,24 @@ with tab_overview:
                 sell_rows["exit_timestamp"], format="mixed"
             ).dt.normalize()
             merged = sell_rows.merge(
-                daily[["date", "total"]], left_on="exit_date", right_on="date", how="inner"
+                daily[["date", "total"]],
+                left_on="exit_date",
+                right_on="date",
+                how="inner",
             )
             if len(merged) > 0:
                 fig.add_trace(
                     go.Scatter(
-                        x=merged["date"], y=merged["total"],
-                        name="売り", mode="markers",
-                        marker=dict(symbol="triangle-down", size=12, color=L,
-                                    line=dict(width=1.5, color="#fff")),
+                        x=merged["date"],
+                        y=merged["total"],
+                        name="売り",
+                        mode="markers",
+                        marker=dict(
+                            symbol="triangle-down",
+                            size=12,
+                            color=L,
+                            line=dict(width=1.5, color="#fff"),
+                        ),
                         hovertemplate="%{x|%m/%d} 売り %{text}<extra></extra>",
                         text=merged["ticker"],
                         showlegend=False,
@@ -810,10 +874,13 @@ with tab_overview:
 
         fig.add_hline(y=capital, line_dash="dot", line_color="#cbd5e1", line_width=1)
         fig.add_annotation(
-            x=daily["date"].iloc[0], y=capital,
+            x=daily["date"].iloc[0],
+            y=capital,
             text=f"スタート ${capital:,.0f}",
-            showarrow=False, font=dict(size=10, color="#94a3b8"),
-            xanchor="left", yshift=10,
+            showarrow=False,
+            font=dict(size=10, color="#94a3b8"),
+            xanchor="left",
+            yshift=10,
         )
 
         fig.update_layout(
@@ -822,21 +889,34 @@ with tab_overview:
             margin=dict(t=20, b=28, l=65, r=20),
             xaxis=dict(title="", gridcolor="#f1f5f9", linecolor="#e2e8f0"),
             yaxis=dict(
-                title="", tickprefix="$", tickformat=",",
-                gridcolor="#f1f5f9", linecolor="#e2e8f0",
+                title="",
+                tickprefix="$",
+                tickformat=",",
+                gridcolor="#f1f5f9",
+                linecolor="#e2e8f0",
             ),
             legend=dict(
-                orientation="h", yanchor="bottom", y=1.02,
-                xanchor="right", x=1, font=dict(size=11),
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                font=dict(size=11),
             ),
-            font=dict(family="Inter, -apple-system, BlinkMacSystemFont, sans-serif", size=12),
+            font=dict(
+                family="Inter, -apple-system, BlinkMacSystemFont, sans-serif", size=12
+            ),
             plot_bgcolor="#fff",
             paper_bgcolor="#fff",
-            hoverlabel=dict(bgcolor="#0f172a", font_color="#fff", font_size=12,
-                            bordercolor="#0f172a"),
+            hoverlabel=dict(
+                bgcolor="#0f172a",
+                font_color="#fff",
+                font_size=12,
+                bordercolor="#0f172a",
+            ),
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     # ── 3. 実取引チェックリスト ──
 
@@ -856,7 +936,7 @@ with tab_overview:
         )
     with cl_right:
         st.markdown('<div style="height:1.6rem"></div>', unsafe_allow_html=True)
-        if st.button("詳細分析", type="secondary", use_container_width=True):
+        if st.button("詳細分析", type="secondary", width="stretch"):
             show_analysis_dialog()
 
     kpi_checks = []
@@ -866,26 +946,46 @@ with tab_overview:
     wr_ok = wr >= wr_tgt
     wr_pct = min(100, max(0, wr / wr_tgt * 100)) if wr_tgt > 0 else 0
     wr_gap = wr_tgt - wr
-    kpi_checks.append({
-        "label": "勝率", "tip": "利益が出た取引の割合",
-        "current": f"{wr:.0f}%", "target_str": f"{wr_tgt:.0f}%",
-        "ok": wr_ok, "bar_pct": wr_pct,
-        "gap_txt": "達成" if wr_ok else f"あと{wr_gap:.0f}pp",
-        "gap_sub": "" if wr_ok else "勝てる銘柄選定が必要",
-    })
+    kpi_checks.append(
+        {
+            "label": "勝率",
+            "tip": "利益が出た取引の割合",
+            "current": f"{wr:.0f}%",
+            "target_str": f"{wr_tgt:.0f}%",
+            "ok": wr_ok,
+            "bar_pct": wr_pct,
+            "gap_txt": "達成" if wr_ok else f"あと{wr_gap:.0f}pp",
+            "gap_sub": "" if wr_ok else "勝てる銘柄選定が必要",
+        }
+    )
 
     ar = kpi["annual_return"]
     ar_tgt = targets["annual_return"]
     ar_ok = ar >= ar_tgt
     ar_pct = min(100, max(0, ar / ar_tgt * 100)) if ar_tgt > 0 and ar > 0 else 0
     ar_gap = ar_tgt - ar
-    kpi_checks.append({
-        "label": "年率リターン", "tip": "今の成績を1年に換算した利回り",
-        "current": f"{ar:+.1f}%", "target_str": f"{ar_tgt:.0f}%",
-        "ok": ar_ok, "bar_pct": ar_pct,
-        "gap_txt": "達成" if ar_ok else f"あと{ar_gap:.1f}%",
-        "gap_sub": "" if ar_ok else ("マイナス圏。利確精度の向上が必要" if ar < 0 else ""),
-    })
+    days_running = kpi.get("days_running", 0)
+    ar_note = f"（{days_running}日間データから換算）" if days_running < 30 else ""
+    kpi_checks.append(
+        {
+            "label": "年率リターン",
+            "tip": f"今の成績を1年に換算した利回り{ar_note}",
+            "current": f"{ar:+.1f}%",
+            "target_str": f"{ar_tgt:.0f}%",
+            "ok": ar_ok,
+            "bar_pct": ar_pct,
+            "gap_txt": "達成" if ar_ok else f"あと{ar_gap:.1f}%",
+            "gap_sub": (
+                ""
+                if ar_ok
+                else (
+                    f"マイナス圏。利確精度の向上が必要{ar_note}"
+                    if ar < 0
+                    else ar_note
+                )
+            ),
+        }
+    )
 
     dd = kpi["max_drawdown"]
     dd_tgt = targets["max_drawdown"]
@@ -897,26 +997,36 @@ with tab_overview:
     else:
         dd_pct = 0
     dd_over = dd - dd_tgt
-    kpi_checks.append({
-        "label": "最大DD", "tip": "資産が最も下がった時の下落幅（小さいほど良い）",
-        "current": f"{dd:.1f}%", "target_str": f"{dd_tgt:.0f}%以下",
-        "ok": dd_ok, "bar_pct": dd_pct,
-        "gap_txt": "達成" if dd_ok else f"{dd_over:.0f}%超過",
-        "gap_sub": "" if dd_ok else "損切りルールの改善が急務",
-    })
+    kpi_checks.append(
+        {
+            "label": "最大DD",
+            "tip": "資産が最も下がった時の下落幅（小さいほど良い）",
+            "current": f"{dd:.1f}%",
+            "target_str": f"{dd_tgt:.0f}%以下",
+            "ok": dd_ok,
+            "bar_pct": dd_pct,
+            "gap_txt": "達成" if dd_ok else f"{dd_over:.0f}%超過",
+            "gap_sub": "" if dd_ok else "損切りルールの改善が急務",
+        }
+    )
 
     up = kpi["uptime"]
     up_tgt = targets["uptime"]
     up_ok = up >= up_tgt
     up_pct = min(100, max(0, up / up_tgt * 100)) if up_tgt > 0 else 0
     up_gap = up_tgt - up
-    kpi_checks.append({
-        "label": "稼働率", "tip": "システムが正常に動いていた割合",
-        "current": f"{up:.0f}%", "target_str": f"{up_tgt:.0f}%",
-        "ok": up_ok, "bar_pct": up_pct,
-        "gap_txt": "達成" if up_ok else f"あと{up_gap:.0f}pp",
-        "gap_sub": "" if up_ok else "システム安定性の改善が必要",
-    })
+    kpi_checks.append(
+        {
+            "label": "稼働率",
+            "tip": "システムが正常に動いていた割合",
+            "current": f"{up:.0f}%",
+            "target_str": f"{up_tgt:.0f}%",
+            "ok": up_ok,
+            "bar_pct": up_pct,
+            "gap_txt": "達成" if up_ok else f"あと{up_gap:.0f}pp",
+            "gap_sub": "" if up_ok else "システム安定性の改善が必要",
+        }
+    )
 
     cl_html = ""
     for item in kpi_checks:
@@ -1024,8 +1134,16 @@ with tab_overview:
                     f"{sign_t}${pnl_val:,.0f}（{sign_t}{pct_val:.1f}%）</span>"
                 )
 
-                ed = t["entry_timestamp"][:10] if pd.notna(t.get("entry_timestamp")) else ""
-                xd = t["exit_timestamp"][:10] if pd.notna(t.get("exit_timestamp")) else ""
+                ed = (
+                    t["entry_timestamp"][:10]
+                    if pd.notna(t.get("entry_timestamp"))
+                    else ""
+                )
+                xd = (
+                    t["exit_timestamp"][:10]
+                    if pd.notna(t.get("exit_timestamp"))
+                    else ""
+                )
                 st.markdown(
                     f"""<div class="tr-card {accent}">
                         <div>
@@ -1048,7 +1166,11 @@ with tab_overview:
             elif t["status"] == "OPEN":
                 accent = "tr-open"
                 result = '<span class="pill pill-blue">保有中</span>'
-                ed = t["entry_timestamp"][:10] if pd.notna(t.get("entry_timestamp")) else ""
+                ed = (
+                    t["entry_timestamp"][:10]
+                    if pd.notna(t.get("entry_timestamp"))
+                    else ""
+                )
                 st.markdown(
                     f"""<div class="tr-card {accent}">
                         <div>
@@ -1159,7 +1281,7 @@ with tab_ops:
             "signals",
             "売買判断",
             "買い・売りのシグナルを生成",
-            "3戦略（押し目買い・トレンド追従・VIX逆張り）のテクニカル指標＋AIニュース分析を統合。5カテゴリ中2つ以上一致＆確信度6以上で発出。AIがrejectなら取消。",
+            "3戦略（押し目買い・トレンド追従・VIX逆張り）のテクニカル指標＋AIニュース分析を統合。最低3カテゴリ一致＆確信度6以上で発出。AIがrejectなら取消。",
         ),
         (
             "trading",
@@ -1203,7 +1325,9 @@ with tab_ops:
             if sell_cnt:
                 parts.append(f'<span class="c-neg">売 {sell_cnt}</span>')
             if parts:
-                extra = f' <span style="font-size:0.7rem">（{" / ".join(parts)}）</span>'
+                extra = (
+                    f' <span style="font-size:0.7rem">（{" / ".join(parts)}）</span>'
+                )
 
         count_str = f"{count}件" if count > 0 else "-"
         val_color = "#0f172a" if count > 0 else "#cbd5e1"
@@ -1260,16 +1384,35 @@ with tab_ops:
     success_rate = max(0.0, 100.0 - health["error_rate"])
     hcols = st.columns(5)
     h_items = [
-        ("情報収集", f"{health['news_per_day']:.0f}", "件/日", health["news_per_day"] > 0),
-        ("AI分析", f"{health['analysis_per_day']:.1f}", "件/日", health["analysis_per_day"] > 0),
-        ("売買判断", f"{health['signals_per_day']:.1f}", "件/日", health["signals_per_day"] > 0),
+        (
+            "情報収集",
+            f"{health['news_per_day']:.0f}",
+            "件/日",
+            health["news_per_day"] > 0,
+        ),
+        (
+            "AI分析",
+            f"{health['analysis_per_day']:.1f}",
+            "件/日",
+            health["analysis_per_day"] > 0,
+        ),
+        (
+            "売買判断",
+            f"{health['signals_per_day']:.1f}",
+            "件/日",
+            health["signals_per_day"] > 0,
+        ),
         ("正常処理率", f"{success_rate:.0f}%", "", success_rate >= 90),
         ("稼働継続率", f"{health['uptime_pct']:.0f}%", "", health["uptime_pct"] >= 95),
     ]
 
     for col, (label, val, sub, is_ok) in zip(hcols, h_items):
         val_color = W if is_ok else L
-        sub_html = f'<span style="font-size:0.6rem; color:#94a3b8; font-weight:400">{sub}</span>' if sub else ""
+        sub_html = (
+            f'<span style="font-size:0.6rem; color:#94a3b8; font-weight:400">{sub}</span>'
+            if sub
+            else ""
+        )
         with col:
             st.markdown(
                 f'<div class="card-sm" style="text-align:center; padding:0.8rem 0.5rem">'
@@ -1395,7 +1538,9 @@ with tab_ops:
                 tickers_raw = n.get("tickers_json", "") or ""
                 sent = n.get("sentiment_score") or 0
                 s_color = W if sent > 0 else (L if sent < 0 else "#94a3b8")
-                sent_label = "好材料" if sent > 0.3 else ("悪材料" if sent < -0.3 else "中立")
+                sent_label = (
+                    "好材料" if sent > 0.3 else ("悪材料" if sent < -0.3 else "中立")
+                )
 
                 # テーマ・ティッカーピル
                 pills = ""
@@ -1407,8 +1552,8 @@ with tab_ops:
                     tickers = _json.loads(tickers_raw) if tickers_raw else []
                     for tk in tickers[:5]:
                         pills += f'<span style="font-size:0.6rem; color:#64748b; margin-right:0.25rem">${tk}</span>'
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"ティッカーJSON解析エラー: {e}")
 
                 # 詳細ブロック
                 detail_rows = ""
@@ -1451,10 +1596,16 @@ with tab_ops:
                 model = a.get("model_used", "") or ""
                 time_a = str(a.get("analyzed_at", ""))[:16].replace("T", " ")
 
-                dir_label = {"bullish": "強気", "bearish": "弱気", "neutral": "中立"}.get(
-                    direction, direction
+                dir_label = {
+                    "bullish": "強気",
+                    "bearish": "弱気",
+                    "neutral": "中立",
+                }.get(direction, direction)
+                dir_color = (
+                    W
+                    if direction == "bullish"
+                    else (L if direction == "bearish" else "#64748b")
                 )
-                dir_color = W if direction == "bullish" else (L if direction == "bearish" else "#64748b")
 
                 type_label = {
                     "theme_report": "テーマレポート",
@@ -1465,7 +1616,9 @@ with tab_ops:
                 # ヘッダー
                 header_parts = [f"<b>{theme}</b>"]
                 if ticker:
-                    header_parts.append(f'<span style="color:{P}; font-weight:600">{ticker}</span>')
+                    header_parts.append(
+                        f'<span style="color:{P}; font-weight:600">{ticker}</span>'
+                    )
                 header_parts.append(
                     f'<span style="color:{dir_color}; font-weight:600">スコア {score:.0f} / {dir_label}</span>'
                 )
@@ -1487,8 +1640,8 @@ with tab_ops:
                     if kps:
                         kp_list = "".join(f"<li>{kp}</li>" for kp in kps[:5])
                         detail_rows += f'<div class="dd-kv"><span class="dd-k">注目点</span><span class="dd-v"><ul style="margin:0; padding-left:1.2rem">{kp_list}</ul></span></div>'
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"注目点JSON解析エラー: {e}")
 
                 if detailed:
                     detail_rows += (
@@ -1570,14 +1723,16 @@ with tab_ops:
 
                     factors = _json.loads(df_raw) if df_raw else {}
                     if isinstance(factors, dict):
-                        dr = factors.get("detailed_reason", "") or factors.get("reason", "")
+                        dr = factors.get("detailed_reason", "") or factors.get(
+                            "reason", ""
+                        )
                         chg = factors.get("change_pct")
                         if dr:
                             detail_rows += f'<div class="dd-kv"><span class="dd-k">詳細根拠</span><span class="dd-v">{dr}</span></div>'
                         if chg is not None:
                             detail_rows += f'<div class="dd-kv"><span class="dd-k">変動率</span><span class="dd-v">{chg:+.1f}%</span></div>'
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"シグナル要因解析エラー: {e}")
 
                 detail_rows += f'<div class="dd-kv"><span class="dd-k">検出時刻</span><span class="dd-v">{time_s}</span></div>'
 
@@ -1612,7 +1767,11 @@ with tab_ops:
                 holding = t.get("holding_days")
                 exit_reason = t.get("exit_reason", "") or ""
                 entry_ts = str(t.get("entry_timestamp", ""))[:16].replace("T", " ")
-                exit_ts = str(t.get("exit_timestamp", ""))[:16].replace("T", " ") if t.get("exit_timestamp") else ""
+                exit_ts = (
+                    str(t.get("exit_timestamp", ""))[:16].replace("T", " ")
+                    if t.get("exit_timestamp")
+                    else ""
+                )
 
                 if t["status"] == "CLOSED":
                     pnl_txt = f'<span class="{pnl_c}" style="font-weight:600">{pnl_s}${pnl_v:,.2f}</span>'
@@ -1987,7 +2146,7 @@ with tab_spec:
         "<b>ライフサイクル判定:</b> 0-39=萌芽期 / 40-69=成長期 / 70-85=成熟期 / 86-100=過熱期</div>"
         "</div>"
         # -- 分析6: トレード戦略生成 --
-        '<div>'
+        "<div>"
         '<div style="font-size:0.82rem; font-weight:700; color:#1e40af; margin-bottom:0.3rem">'
         "6. トレード戦略生成（最終意思決定支援）</div>"
         '<div style="font-size:0.74rem; color:#475569; line-height:1.7">'
@@ -2104,7 +2263,7 @@ with tab_spec:
         "<b>ベース確信度:</b> 8（高い）+ Tier 1強化あり</div>"
         "</div>"
         # 戦略3
-        '<div>'
+        "<div>"
         '<div style="font-size:0.82rem; font-weight:700; color:#0f172a; margin-bottom:0.2rem">'
         "3. VIX逆張り（VIX Contrarian）</div>"
         '<div style="font-size:0.74rem; color:#475569; line-height:1.6; margin-bottom:0.3rem">'
@@ -2130,7 +2289,7 @@ with tab_spec:
         "これにより「RSIだけ低いが他は全て正常」のような偽シグナルを排除します。"
         "</div>"
         '<div class="spec-grid">'
-        '<div class="spec-row"><span class="spec-k">多カテゴリ検証</span><span class="spec-v">5カテゴリ中2つ以上が一致</span></div>'
+        '<div class="spec-row"><span class="spec-k">多カテゴリ検証</span><span class="spec-v">最低3カテゴリ一致（強カテゴリ含む場合2で可）</span></div>'
         '<div class="spec-row"><span class="spec-k">確信度の閾値</span><span class="spec-v">6以上（10点満点）で発出</span></div>'
         '<div class="spec-row"><span class="spec-k">シグナル有効期限</span><span class="spec-v">2営業日（価格乖離10%超で自動失効）</span></div>'
         '<div class="spec-row"><span class="spec-k">処理順序</span><span class="spec-v">確信度が高い順に優先処理</span></div>'
@@ -2236,7 +2395,7 @@ with tab_spec:
         '<div class="spec-row"><span class="spec-k">同時保有上限</span><span class="spec-v">5銘柄</span></div>'
         '<div class="spec-row"><span class="spec-k">1サイクルの最大買い</span><span class="spec-v">3銘柄</span></div>'
         '<div class="spec-row"><span class="spec-k">同セクター上限</span><span class="spec-v">1銘柄/日</span></div>'
-        '<div class="spec-row"><span class="spec-k">注文タイムアウト</span><span class="spec-v">30秒</span></div>'
+        '<div class="spec-row"><span class="spec-k">注文タイムアウト</span><span class="spec-v">300秒（5分）</span></div>'
         "</div>"
         "</div>",
         unsafe_allow_html=True,
@@ -2250,11 +2409,13 @@ with tab_spec:
         '<div style="font-size:0.72rem; font-weight:600; color:#64748b; margin-bottom:0.25rem">固定パラメータ</div>'
         "</div>"
         '<div class="spec-grid">'
-        '<div class="spec-row"><span class="spec-k">損切（ストップロス）</span><span class="spec-v" style="color:#e11d48">-8%</span></div>'
-        '<div class="spec-row"><span class="spec-k">利確（テイクプロフィット）</span><span class="spec-v" style="color:#059669">+20%</span></div>'
+        '<div class="spec-row"><span class="spec-k">HARD STOP LOSS（絶対防衛）</span><span class="spec-v" style="color:#e11d48">-8%</span></div>'
+        '<div class="spec-row"><span class="spec-k">最大利確目標</span><span class="spec-v" style="color:#059669">+20%</span></div>'
         '<div class="spec-row"><span class="spec-k">最低リスクリワード比</span><span class="spec-v">1.5倍</span></div>'
         '<div class="spec-row"><span class="spec-k">日次損失リミット</span><span class="spec-v" style="color:#e11d48">-5%</span></div>'
         "</div>"
+        '<div class="spec-note">通常のSL/TPは下記の動的VIX連動値が適用されます。'
+        "HARD STOP LOSSは全ての条件を無視して強制発動する最終防衛ラインです。</div>"
         '<div style="padding:0.5rem 1rem 0.2rem">'
         '<div style="font-size:0.72rem; font-weight:600; color:#64748b; margin-bottom:0.25rem">動的SL/TP（VIXレベルで自動調整）</div>'
         "</div>"
@@ -2331,7 +2492,7 @@ with tab_spec:
         "Cybersecurity / Energy Infrastructure / Defense Space / Bio Genomics"
         "</div></div>"
         # Tier 3
-        '<div>'
+        "<div>"
         '<div style="font-size:0.72rem; font-weight:600; color:#64748b; margin-bottom:0.25rem">'
         '<span class="spec-badge spec-b3">Tier 3</span>アーカイブ（週次レポートのみ）</div>'
         '<div style="font-size:0.76rem; color:#0f172a; line-height:1.7">'
@@ -2509,7 +2670,7 @@ with tab_spec:
         "PDCA形式で改善提案を生成。パラメータ調整案やフィルター追加を提示。</div>"
         "</div>"
         # 改善実行
-        '<div>'
+        "<div>"
         '<div style="font-size:0.78rem; font-weight:700; color:#0f172a; margin-bottom:0.2rem">改善の実行</div>'
         '<div style="font-size:0.72rem; color:#64748b; line-height:1.6">'
         "改善提案はバックテスト（過去データでの検証）を経て適用。"
