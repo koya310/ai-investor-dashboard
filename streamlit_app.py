@@ -329,6 +329,36 @@ details[open] > .dd-summary::before { transform: rotate(90deg); }
     font-size: 0.76rem; color: #1e40af; line-height: 1.6;
 }
 
+/* ── News utilization ── */
+.nu-flow {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0; padding: 0.8rem 0; flex-wrap: wrap;
+}
+.nu-node {
+    text-align: center; padding: 0.5rem 0.7rem;
+    border-radius: 10px; min-width: 80px;
+}
+.nu-active { background: #ecfdf5; border: 1.5px solid #a7f3d0; }
+.nu-empty  { background: #f8fafc; border: 1.5px dashed #cbd5e1; }
+.nu-icon   { font-size: 1rem; }
+.nu-label  { font-size: 0.65rem; font-weight: 600; color: #64748b; margin-top: 0.1rem; }
+.nu-val    { font-size: 0.95rem; font-weight: 700; color: #0f172a; }
+.nu-arrow  { color: #cbd5e1; font-size: 1rem; margin: 0 0.15rem; }
+.nu-src-bar {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.25rem 0; font-size: 0.75rem;
+}
+.nu-src-name { width: 7rem; color: #64748b; flex-shrink: 0; text-align: right; }
+.nu-src-fill { height: 6px; border-radius: 3px; background: #2563eb; }
+.nu-src-cnt  { color: #94a3b8; font-size: 0.68rem; min-width: 2.5rem; }
+.nu-theme-card {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.3rem 0.6rem; border-radius: 8px;
+    background: #fff; border: 1px solid #e2e8f0;
+    font-size: 0.72rem; margin: 0.2rem;
+}
+.nu-score { font-weight: 700; }
+
 /* ── Streamlit overrides ── */
 .stMarkdown { margin-bottom: 0; }
 div[data-testid="stVerticalBlock"] > div:has(> .stMarkdown) { padding-top: 0; padding-bottom: 0; }
@@ -1422,7 +1452,183 @@ with tab_ops:
                 unsafe_allow_html=True,
             )
 
-    # ── 3. 日次運用カレンダー（直近14日） ──
+    # ── 3. ニュース・分析活用 ──
+
+    st.markdown(
+        f'<div class="sec-hdr">'
+        f'<div class="bar" style="background:#8b5cf6"></div>'
+        f'<div class="txt">ニュース・分析活用'
+        f'<span class="sub">直近14日</span></div>'
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    # データ読み込み
+    news_trend = _dm.get_news_collection_trend(14)
+    news_sources = _dm.get_news_source_breakdown(14)
+    news_tickers = _dm.get_news_ticker_coverage(14)
+    analysis_trend = _dm.get_analysis_trend(14)
+    theme_scores = _dm.get_analysis_theme_scores(7)
+    ns_conn = _dm.get_news_signal_connection(14)
+
+    # 3a: フロー概要（ニュース→分析→シグナル）
+    total_news = int(news_trend["article_count"].sum()) if len(news_trend) > 0 else 0
+    total_analysis = int(analysis_trend["total"].sum()) if len(analysis_trend) > 0 else 0
+    total_signals = ns_conn["total_signals"]
+    news_influenced = ns_conn["news_influenced_signals"]
+    flow_df = ns_conn["flow_df"]
+
+    def _nu_cls(v):
+        return "nu-active" if v > 0 else "nu-empty"
+
+    st.markdown(
+        f'<div class="card">'
+        f'<div style="font-size:0.72rem; color:#64748b; font-weight:600; margin-bottom:0.4rem">データフロー（14日間合計）</div>'
+        f'<div class="nu-flow">'
+        f'  <div class="nu-node {_nu_cls(total_news)}"><div class="nu-icon">📰</div><div class="nu-val">{total_news:,}</div><div class="nu-label">ニュース収集</div></div>'
+        f'  <div class="nu-arrow">→</div>'
+        f'  <div class="nu-node {_nu_cls(total_analysis)}"><div class="nu-icon">🧠</div><div class="nu-val">{total_analysis}</div><div class="nu-label">AI分析</div></div>'
+        f'  <div class="nu-arrow">→</div>'
+        f'  <div class="nu-node {_nu_cls(total_signals)}"><div class="nu-icon">🎯</div><div class="nu-val">{total_signals}</div><div class="nu-label">シグナル</div></div>'
+        f'  <div class="nu-arrow">→</div>'
+        f'  <div class="nu-node {_nu_cls(news_influenced)}"><div class="nu-icon">📊</div><div class="nu-val">{news_influenced}</div><div class="nu-label">ニュース活用</div></div>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # 3b: 日別フローチャート（Plotly）
+    if len(flow_df) > 0:
+        fig_flow = go.Figure()
+        fig_flow.add_trace(go.Bar(
+            x=flow_df["date"], y=flow_df["news"],
+            name="ニュース", marker_color="#8b5cf6", opacity=0.7,
+        ))
+        fig_flow.add_trace(go.Bar(
+            x=flow_df["date"], y=flow_df["analysis"],
+            name="AI分析", marker_color="#2563eb", opacity=0.7,
+        ))
+        fig_flow.add_trace(go.Scatter(
+            x=flow_df["date"], y=flow_df["signals"],
+            name="シグナル", mode="lines+markers",
+            line=dict(color="#059669", width=2),
+            marker=dict(size=6),
+        ))
+        fig_flow.update_layout(
+            height=220, margin=dict(l=0, r=0, t=25, b=0),
+            legend=dict(orientation="h", yanchor="top", y=1.15, xanchor="center", x=0.5, font_size=11),
+            plot_bgcolor="white", paper_bgcolor="white",
+            xaxis=dict(showgrid=False, tickfont_size=10),
+            yaxis=dict(showgrid=True, gridcolor="#f1f5f9", tickfont_size=10),
+            barmode="group", bargap=0.3,
+        )
+        st.plotly_chart(fig_flow, use_container_width=True)
+
+    # 3c: 詳細（2カラム: ニュースソース / AI分析テーマ）
+    nu_col1, nu_col2 = st.columns(2)
+
+    with nu_col1:
+        st.markdown(
+            '<div class="card-sm">'
+            '<div style="font-size:0.72rem; font-weight:600; color:#64748b; margin-bottom:0.4rem">ニュースソース TOP</div>',
+            unsafe_allow_html=True,
+        )
+        if len(news_sources) > 0:
+            max_cnt = int(news_sources["cnt"].max())
+            src_html = ""
+            for _, row in news_sources.head(7).iterrows():
+                pct = int(row["cnt"]) / max_cnt * 100 if max_cnt > 0 else 0
+                src_html += (
+                    f'<div class="nu-src-bar">'
+                    f'<div class="nu-src-name">{row["source"]}</div>'
+                    f'<div style="flex:1"><div class="nu-src-fill" style="width:{pct:.0f}%"></div></div>'
+                    f'<div class="nu-src-cnt">{int(row["cnt"]):,}</div>'
+                    f'</div>'
+                )
+            st.markdown(src_html + '</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(
+                '<div style="color:#94a3b8; font-size:0.78rem; padding:0.5rem 0">データなし</div></div>',
+                unsafe_allow_html=True,
+            )
+
+        # ティッカー紐付け
+        if len(news_tickers) > 0:
+            st.markdown(
+                '<div class="card-sm">'
+                '<div style="font-size:0.72rem; font-weight:600; color:#64748b; margin-bottom:0.3rem">関連銘柄（記事数）</div>',
+                unsafe_allow_html=True,
+            )
+            tk_pills = ""
+            for _, row in news_tickers.head(12).iterrows():
+                tk_pills += (
+                    f'<span class="nu-theme-card">'
+                    f'<span style="color:{P}; font-weight:600">{row["ticker"]}</span>'
+                    f'<span class="nu-score" style="color:#64748b">{int(row["article_count"])}</span>'
+                    f'</span>'
+                )
+            st.markdown(tk_pills + '</div>', unsafe_allow_html=True)
+
+    with nu_col2:
+        st.markdown(
+            '<div class="card-sm">'
+            '<div style="font-size:0.72rem; font-weight:600; color:#64748b; margin-bottom:0.4rem">AI分析テーマ（最新スコア）</div>',
+            unsafe_allow_html=True,
+        )
+        if len(theme_scores) > 0:
+            themes_html = ""
+            for _, t in theme_scores.iterrows():
+                score = t.get("score", 0) or 0
+                direction = t.get("direction", "") or ""
+                dir_label = {"bullish": "強気", "bearish": "弱気", "neutral": "中立"}.get(direction, direction)
+                dir_color = W if direction == "bullish" else (L if direction == "bearish" else "#64748b")
+                rec = t.get("recommendation", "") or ""
+                themes_html += (
+                    f'<div class="nu-theme-card">'
+                    f'<span>{t["theme"]}</span>'
+                    f'<span class="nu-score" style="color:{dir_color}">{score:.0f}</span>'
+                    f'<span style="font-size:0.6rem; color:{dir_color}">{dir_label}</span>'
+                    f'</div>'
+                )
+            st.markdown(themes_html + '</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(
+                '<div style="color:#94a3b8; font-size:0.78rem; padding:0.5rem 0">データなし</div></div>',
+                unsafe_allow_html=True,
+            )
+
+        # 分析トレンド: 方向性分布
+        if len(analysis_trend) > 0:
+            total_b = int(analysis_trend["bullish"].sum())
+            total_bear = int(analysis_trend["bearish"].sum())
+            total_n = int(analysis_trend["neutral"].sum())
+            total_all = total_b + total_bear + total_n
+            if total_all > 0:
+                b_pct = total_b / total_all * 100
+                bear_pct = total_bear / total_all * 100
+                n_pct = total_n / total_all * 100
+                avg_score = analysis_trend["avg_score"].mean()
+                st.markdown(
+                    f'<div class="card-sm">'
+                    f'<div style="font-size:0.72rem; font-weight:600; color:#64748b; margin-bottom:0.3rem">分析方向性の分布</div>'
+                    f'<div style="display:flex; height:10px; border-radius:5px; overflow:hidden; margin-bottom:0.3rem">'
+                    f'<div style="width:{b_pct:.0f}%; background:{W}"></div>'
+                    f'<div style="width:{n_pct:.0f}%; background:#94a3b8"></div>'
+                    f'<div style="width:{bear_pct:.0f}%; background:{L}"></div>'
+                    f'</div>'
+                    f'<div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#64748b">'
+                    f'<span style="color:{W}">強気 {total_b}件 ({b_pct:.0f}%)</span>'
+                    f'<span>中立 {total_n}件</span>'
+                    f'<span style="color:{L}">弱気 {total_bear}件 ({bear_pct:.0f}%)</span>'
+                    f'</div>'
+                    f'<div style="text-align:center; margin-top:0.3rem; font-size:0.72rem; color:#64748b">'
+                    f'平均スコア: <span style="font-weight:700; color:#0f172a">{avg_score:.0f}</span> / 100'
+                    f'</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+    # ── 4. 日次運用カレンダー（直近14日） ──
 
     st.markdown(
         f'<div class="sec-hdr">'

@@ -1207,3 +1207,192 @@ def get_todays_analyses(limit: int = 50) -> pd.DataFrame:
             params=(today, limit),
         )
         return df
+
+
+# ============================================================
+# ニュース活用・分析可視化
+# ============================================================
+
+
+def get_news_collection_trend(days: int = 14) -> pd.DataFrame:
+    """日別のニュース収集件数・ソース数を返す。"""
+    with _connect() as conn:
+        df = pd.read_sql_query(
+            """
+            SELECT date(created_at) as collect_date,
+                   COUNT(*) as article_count,
+                   COUNT(DISTINCT source) as source_count
+            FROM news
+            WHERE created_at >= datetime('now', ? || ' days')
+            GROUP BY date(created_at)
+            ORDER BY collect_date
+            """,
+            conn,
+            params=(f"-{days}",),
+        )
+        return df
+
+
+def get_news_source_breakdown(days: int = 14) -> pd.DataFrame:
+    """直近N日のニュースソース別件数。"""
+    with _connect() as conn:
+        df = pd.read_sql_query(
+            """
+            SELECT source, COUNT(*) as cnt
+            FROM news
+            WHERE created_at >= datetime('now', ? || ' days')
+            GROUP BY source
+            ORDER BY cnt DESC
+            LIMIT 10
+            """,
+            conn,
+            params=(f"-{days}",),
+        )
+        return df
+
+
+def get_news_ticker_coverage(days: int = 14) -> pd.DataFrame:
+    """直近N日でニュースが紐付いたティッカー別件数。"""
+    with _connect() as conn:
+        df = pd.read_sql_query(
+            """
+            SELECT tickers_json, COUNT(*) as cnt
+            FROM news
+            WHERE created_at >= datetime('now', ? || ' days')
+              AND tickers_json IS NOT NULL
+              AND tickers_json != ''
+              AND tickers_json != '[]'
+            GROUP BY tickers_json
+            ORDER BY cnt DESC
+            """,
+            conn,
+            params=(f"-{days}",),
+        )
+        # tickers_json を展開してティッカー別に集計
+        ticker_counts: dict[str, int] = {}
+        for _, row in df.iterrows():
+            try:
+                tickers = json.loads(row["tickers_json"])
+                for t in tickers:
+                    ticker_counts[t] = ticker_counts.get(t, 0) + int(row["cnt"])
+            except Exception:
+                pass
+        result = pd.DataFrame(
+            sorted(ticker_counts.items(), key=lambda x: -x[1]),
+            columns=["ticker", "article_count"],
+        )
+        return result
+
+
+def get_analysis_trend(days: int = 14) -> pd.DataFrame:
+    """日別のAI分析件数・平均スコア・方向性。"""
+    with _connect() as conn:
+        df = pd.read_sql_query(
+            """
+            SELECT date(analyzed_at) as analysis_date,
+                   COUNT(*) as total,
+                   ROUND(AVG(score), 1) as avg_score,
+                   SUM(CASE WHEN direction='bullish' THEN 1 ELSE 0 END) as bullish,
+                   SUM(CASE WHEN direction='bearish' THEN 1 ELSE 0 END) as bearish,
+                   SUM(CASE WHEN direction='neutral' THEN 1 ELSE 0 END) as neutral,
+                   COUNT(DISTINCT theme) as themes_covered
+            FROM ai_analysis
+            WHERE analyzed_at >= datetime('now', ? || ' days')
+            GROUP BY date(analyzed_at)
+            ORDER BY analysis_date
+            """,
+            conn,
+            params=(f"-{days}",),
+        )
+        return df
+
+
+def get_analysis_theme_scores(days: int = 7) -> pd.DataFrame:
+    """直近のテーマ別最新スコア・方向性。"""
+    with _connect() as conn:
+        df = pd.read_sql_query(
+            """
+            SELECT theme, score, direction, recommendation,
+                   news_count, analyzed_at
+            FROM ai_analysis
+            WHERE analyzed_at >= datetime('now', ? || ' days')
+              AND analysis_type = 'theme_report'
+            ORDER BY analyzed_at DESC
+            """,
+            conn,
+            params=(f"-{days}",),
+        )
+        # テーマごとに最新1件のみ
+        if len(df) > 0:
+            df = df.drop_duplicates(subset=["theme"], keep="first")
+        return df
+
+
+def get_news_signal_connection(days: int = 14) -> dict:
+    """ニュース→分析→シグナルの接続状況を集計。"""
+    with _connect() as conn:
+        # 日別: ニュース件数、分析件数、シグナル件数
+        flow = pd.read_sql_query(
+            """
+            SELECT d.dt as date,
+                   COALESCE(n.news_cnt, 0) as news,
+                   COALESCE(a.analysis_cnt, 0) as analysis,
+                   COALESCE(s.signal_cnt, 0) as signals
+            FROM (
+                SELECT DISTINCT date(created_at) as dt FROM news
+                WHERE created_at >= datetime('now', ? || ' days')
+                UNION
+                SELECT DISTINCT date(analyzed_at) FROM ai_analysis
+                WHERE analyzed_at >= datetime('now', ? || ' days')
+                UNION
+                SELECT DISTINCT date(detected_at) FROM signals
+                WHERE detected_at >= datetime('now', ? || ' days')
+            ) d
+            LEFT JOIN (
+                SELECT date(created_at) as dt, COUNT(*) as news_cnt
+                FROM news WHERE created_at >= datetime('now', ? || ' days')
+                GROUP BY date(created_at)
+            ) n ON d.dt = n.dt
+            LEFT JOIN (
+                SELECT date(analyzed_at) as dt, COUNT(*) as analysis_cnt
+                FROM ai_analysis WHERE analyzed_at >= datetime('now', ? || ' days')
+                GROUP BY date(analyzed_at)
+            ) a ON d.dt = a.dt
+            LEFT JOIN (
+                SELECT date(detected_at) as dt, COUNT(*) as signal_cnt
+                FROM signals WHERE detected_at >= datetime('now', ? || ' days')
+                GROUP BY date(detected_at)
+            ) s ON d.dt = s.dt
+            ORDER BY d.dt
+            """,
+            conn,
+            params=(f"-{days}",) * 6,
+        )
+
+        # シグナルのdecision_factorsにnews_scoreがあるか
+        sig_with_news = pd.read_sql_query(
+            """
+            SELECT ticker, signal_type, conviction, decision_factors_json, detected_at
+            FROM signals
+            WHERE detected_at >= datetime('now', ? || ' days')
+              AND decision_factors_json IS NOT NULL
+              AND decision_factors_json != ''
+            ORDER BY detected_at DESC
+            """,
+            conn,
+            params=(f"-{days}",),
+        )
+        news_influenced = 0
+        for _, row in sig_with_news.iterrows():
+            try:
+                factors = json.loads(row["decision_factors_json"])
+                if factors.get("news_score") or factors.get("news_reason"):
+                    news_influenced += 1
+            except Exception:
+                pass
+
+        return {
+            "flow_df": flow,
+            "total_signals": len(sig_with_news),
+            "news_influenced_signals": news_influenced,
+        }
