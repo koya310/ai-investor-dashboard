@@ -584,6 +584,46 @@ def get_alpaca_positions() -> list[dict]:
         return []
 
 
+def get_open_positions_from_trades() -> list[dict]:
+    """tradesテーブルからOPENポジションを再構築（Alpaca API不可時のフォールバック）。"""
+    with _connect() as conn:
+        df = pd.read_sql_query(
+            """
+            SELECT ticker, entry_price, shares
+            FROM trades
+            WHERE status = 'OPEN' AND action = 'BUY'
+            """,
+            conn,
+        )
+    if len(df) == 0:
+        return []
+    result = []
+    for _, row in df.iterrows():
+        ticker = row["ticker"]
+        entry = float(row["entry_price"])
+        shares = int(row["shares"])
+        try:
+            tk = yf.Ticker(ticker)
+            hist = tk.history(period="1d")
+            current = float(hist["Close"].iloc[-1]) if len(hist) > 0 else entry
+        except Exception:
+            current = entry
+        pnl = (current - entry) * shares
+        pnl_pct = ((current / entry) - 1) * 100 if entry > 0 else 0
+        result.append(
+            {
+                "ticker": ticker,
+                "shares": shares,
+                "entry_price": entry,
+                "current_price": current,
+                "market_value": current * shares,
+                "unrealized_pnl": pnl,
+                "unrealized_pnl_pct": pnl_pct,
+            }
+        )
+    return result
+
+
 def get_portfolio_snapshots(start_date: str = PHASE3_START) -> pd.DataFrame:
     """ポートフォリオスナップショット時系列"""
     with _connect() as conn:
