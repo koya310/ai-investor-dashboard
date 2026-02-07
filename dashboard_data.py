@@ -1437,3 +1437,153 @@ def get_news_signal_connection(days: int = 14) -> dict:
             "total_signals": len(sig_with_news),
             "news_influenced_signals": news_influenced,
         }
+
+
+# ============================================================
+# 詳細ログ（日付指定）
+# ============================================================
+
+
+def get_available_log_dates(days: int = 30) -> list[str]:
+    """ログが存在する日付の一覧を返す（降順）。"""
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT d FROM (
+                SELECT date(created_at) as d FROM news
+                WHERE created_at >= datetime('now', ? || ' days')
+                UNION
+                SELECT date(analyzed_at) FROM ai_analysis
+                WHERE analyzed_at >= datetime('now', ? || ' days')
+                UNION
+                SELECT date(detected_at) FROM signals
+                WHERE detected_at >= datetime('now', ? || ' days')
+                UNION
+                SELECT date(started_at) FROM system_runs
+                WHERE started_at >= datetime('now', ? || ' days')
+            ) ORDER BY d DESC
+            """,
+            (f"-{days}",) * 4,
+        ).fetchall()
+        return [r["d"] for r in rows if r["d"]]
+
+
+def get_log_news(target_date: str, limit: int = 200) -> pd.DataFrame:
+    """指定日のニュース一覧（全カラム）。"""
+    with _connect() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT title, content, source, url, published_at,
+                   sentiment_score, quality_score, importance,
+                   theme, tickers_json, created_at
+            FROM news
+            WHERE date(created_at) = ?
+            ORDER BY created_at DESC LIMIT ?
+            """,
+            conn,
+            params=(target_date, limit),
+        )
+
+
+def get_log_analyses(target_date: str) -> pd.DataFrame:
+    """指定日のAI分析一覧（全カラム）。"""
+    with _connect() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT theme, ticker, analysis_type, score, direction,
+                   summary, detailed_analysis, key_points_json,
+                   recommendation, tickers_analyzed_json,
+                   news_count, model_used, analyzed_at
+            FROM ai_analysis
+            WHERE date(analyzed_at) = ?
+            ORDER BY analyzed_at DESC
+            """,
+            conn,
+            params=(target_date,),
+        )
+
+
+def get_log_signals(target_date: str) -> pd.DataFrame:
+    """指定日のシグナル一覧（全カラム）。"""
+    with _connect() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT ticker, signal_type, detected_at, price,
+                   rsi, macd, macd_signal, ma200, volume_ratio,
+                   confidence, conviction, target_price, stop_loss,
+                   status, reasoning, decision_factors_json
+            FROM signals
+            WHERE date(detected_at) = ?
+            ORDER BY detected_at DESC
+            """,
+            conn,
+            params=(target_date,),
+        )
+
+
+def get_log_trades(target_date: str) -> pd.DataFrame:
+    """指定日の取引一覧。"""
+    with _connect() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT ticker, action, entry_price, exit_price, shares,
+                   total_value, profit_loss, profit_loss_pct,
+                   holding_days, status, exit_reason, strategy_used,
+                   entry_timestamp, exit_timestamp, notes
+            FROM trades
+            WHERE date(entry_timestamp) = ? OR date(exit_timestamp) = ?
+            ORDER BY entry_timestamp DESC
+            """,
+            conn,
+            params=(target_date, target_date),
+        )
+
+
+def get_log_system_runs(target_date: str) -> pd.DataFrame:
+    """指定日のシステム実行ログ。"""
+    with _connect() as conn:
+        return pd.read_sql_query(
+            """
+            SELECT run_id, run_mode, environment, status,
+                   started_at, ended_at,
+                   news_collected, signals_detected, trades_executed,
+                   errors_count, error_message, host_name
+            FROM system_runs
+            WHERE date(started_at) = ?
+            ORDER BY started_at DESC
+            """,
+            conn,
+            params=(target_date,),
+        )
+
+
+def get_log_day_summary(target_date: str) -> dict:
+    """指定日の概要サマリー。"""
+    with _connect() as conn:
+        news_cnt = conn.execute(
+            "SELECT COUNT(*) FROM news WHERE date(created_at) = ?",
+            (target_date,),
+        ).fetchone()[0]
+        analysis_cnt = conn.execute(
+            "SELECT COUNT(*) FROM ai_analysis WHERE date(analyzed_at) = ?",
+            (target_date,),
+        ).fetchone()[0]
+        signal_cnt = conn.execute(
+            "SELECT COUNT(*) FROM signals WHERE date(detected_at) = ?",
+            (target_date,),
+        ).fetchone()[0]
+        trade_cnt = conn.execute(
+            "SELECT COUNT(*) FROM trades WHERE date(entry_timestamp) = ? OR date(exit_timestamp) = ?",
+            (target_date, target_date),
+        ).fetchone()[0]
+        run_cnt = conn.execute(
+            "SELECT COUNT(*) FROM system_runs WHERE date(started_at) = ?",
+            (target_date,),
+        ).fetchone()[0]
+        return {
+            "news": news_cnt,
+            "analysis": analysis_cnt,
+            "signals": signal_cnt,
+            "trades": trade_cnt,
+            "runs": run_cnt,
+        }
