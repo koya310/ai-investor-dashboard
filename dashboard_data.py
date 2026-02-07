@@ -17,10 +17,9 @@ import pandas as pd
 import yfinance as yf
 from dotenv import load_dotenv
 
-logger = logging.getLogger(__name__)
-
 PROJECT_ROOT = Path(__file__).parent
-DB_PATH = PROJECT_ROOT / "data" / "ai_investor.db"
+
+logger = logging.getLogger(__name__)
 PORTFOLIO_CONFIG = PROJECT_ROOT / "data" / "portfolio.json"
 HOLDINGS_CONFIG = PROJECT_ROOT / "data" / "my_holdings.json"
 ENV_PATH = PROJECT_ROOT / "data" / ".env"
@@ -41,8 +40,13 @@ KPI_TARGETS = {
 }
 
 
-def _connect() -> sqlite3.Connection:
-    return sqlite3.connect(str(DB_PATH))
+DB_PATH = PROJECT_ROOT / "data" / "ai_investor.db"
+
+
+def _connect():
+    conn = sqlite3.connect(str(DB_PATH), timeout=30)
+    conn.execute("PRAGMA journal_mode=WAL")
+    return conn
 
 
 def _build_ticker_theme_map() -> dict[str, str]:
@@ -77,8 +81,7 @@ def build_daily_portfolio(start_date: str = PHASE3_START) -> pd.DataFrame:
             date, cash, equity, total, daily_change, daily_change_pct,
             events (その日の売買イベント文字列)
     """
-    conn = _connect()
-    try:
+    with _connect() as conn:
         trades = pd.read_sql_query(
             "SELECT ticker, action, shares, entry_price, exit_price, "
             "       total_value, profit_loss, entry_timestamp, exit_timestamp, status "
@@ -86,8 +89,6 @@ def build_daily_portfolio(start_date: str = PHASE3_START) -> pd.DataFrame:
             conn,
             params=[start_date],
         )
-    finally:
-        conn.close()
 
     if len(trades) == 0:
         return pd.DataFrame()
@@ -307,8 +308,7 @@ def get_spy_benchmark(start_date: str = PHASE3_START) -> pd.DataFrame:
 
 def get_last_system_run() -> dict | None:
     """最新のシステム実行情報を1件返す"""
-    conn = _connect()
-    try:
+    with _connect() as conn:
         row = conn.execute(
             "SELECT started_at, status, errors_count, error_message "
             "FROM system_runs ORDER BY started_at DESC LIMIT 1"
@@ -321,8 +321,6 @@ def get_last_system_run() -> dict | None:
             "errors_count": row[2] or 0,
             "error_message": row[3] or "",
         }
-    finally:
-        conn.close()
 
 
 # ============================================================
@@ -332,8 +330,7 @@ def get_last_system_run() -> dict | None:
 
 def get_kpi_summary(start_date: str = PHASE3_START) -> dict:
     """Go/No-Go判定用KPIサマリ"""
-    conn = _connect()
-    try:
+    with _connect() as conn:
         trades_df = pd.read_sql_query(
             """
             SELECT ticker, action, entry_price, exit_price, shares, total_value,
@@ -390,8 +387,6 @@ def get_kpi_summary(start_date: str = PHASE3_START) -> dict:
             "days_remaining": days_remaining,
             "progress_pct": round(progress_pct, 1),
         }
-    finally:
-        conn.close()
 
 
 def _calc_max_drawdown(
@@ -419,15 +414,10 @@ def _calc_max_drawdown(
     # フォールバック: トレードの累積損益からDD推定
     if len(trades_df) == 0:
         return 0.0
-    closed = trades_df[trades_df["profit_loss"].notna()]
-    if len(closed) == 0:
-        return 0.0
-    cumulative = closed["profit_loss"].cumsum()
-    # 初期資本ベースのポートフォリオ価値シリーズ
-    portfolio_values = INITIAL_CAPITAL + cumulative
-    peak = portfolio_values.cummax()
-    drawdown_pct = (peak - portfolio_values) / peak * 100
-    return float(drawdown_pct.max())
+    cumulative = trades_df["profit_loss"].cumsum()
+    peak = cumulative.cummax()
+    drawdown = peak - cumulative
+    return float(drawdown.max() / max(peak.max(), 1) * 100) if peak.max() > 0 else 0.0
 
 
 def get_go_nogo_verdict(kpi: dict) -> dict:
@@ -469,14 +459,18 @@ def get_go_nogo_verdict(kpi: dict) -> dict:
 
 
 def _calc_uptime(conn: sqlite3.Connection, start_date: str) -> float:
-    """system_runsから稼働率を計算"""
+    """system_runsから稼働率を計算（直近7日間のローリングウィンドウ）
+
+    Phase 3開始日からの全期間ではなく、直近7日の稼働率を使う。
+    古い障害が長期間スコアを押し下げるのを防止。
+    """
     runs = pd.read_sql_query(
-        "SELECT status FROM system_runs WHERE started_at >= ?",
+        "SELECT status FROM system_runs WHERE started_at >= datetime('now', '-7 days')",
         conn,
-        params=[start_date],
     )
     if len(runs) == 0:
-        return 100.0
+        # 直近7日に実行なし → 稼働率0%
+        return 0.0
     completed = len(runs[runs["status"] == "completed"])
     return completed / len(runs) * 100
 
@@ -488,8 +482,7 @@ def _calc_uptime(conn: sqlite3.Connection, start_date: str) -> float:
 
 def get_positions() -> pd.DataFrame:
     """現在のペーパートレードポジション"""
-    conn = _connect()
-    try:
+    with _connect() as conn:
         df = pd.read_sql_query(
             """
             SELECT ticker, side, shares, entry_price, current_price,
@@ -503,65 +496,6 @@ def get_positions() -> pd.DataFrame:
             conn,
         )
         return df
-    finally:
-        conn.close()
-
-
-def get_open_positions_from_trades() -> list[dict]:
-    """tradesテーブルのOPENレコードからポジションを再構築する。
-
-    positionsテーブルが空、かつAlpaca APIが使えない場合のフォールバック。
-    yfinanceで現在価格を取得して含み損益を計算する。
-    """
-    conn = _connect()
-    try:
-        rows = conn.execute(
-            "SELECT ticker, shares, entry_price, entry_timestamp "
-            "FROM trades WHERE status = 'OPEN' AND action = 'BUY'"
-        ).fetchall()
-    finally:
-        conn.close()
-
-    if not rows:
-        return []
-
-    result = []
-    tickers = [r[0] for r in rows]
-
-    # yfinanceで現在価格を一括取得
-    current_prices: dict[str, float] = {}
-    price_stale = False
-    try:
-        for t in tickers:
-            info = yf.Ticker(t)
-            price = info.fast_info.get("lastPrice")
-            if price:
-                current_prices[t] = float(price)
-    except Exception as e:
-        logger.warning(f"yfinance価格取得失敗: {e}")
-        price_stale = True
-
-    if not current_prices:
-        price_stale = True
-
-    for ticker, shares, entry_price, entry_ts in rows:
-        cur = current_prices.get(ticker, entry_price)
-        pnl = (cur - entry_price) * shares
-        pnl_pct = ((cur - entry_price) / entry_price * 100) if entry_price else 0
-        result.append(
-            {
-                "ticker": ticker,
-                "shares": int(shares),
-                "entry_price": float(entry_price),
-                "current_price": float(cur),
-                "market_value": float(cur * shares),
-                "unrealized_pnl": float(pnl),
-                "unrealized_pnl_pct": float(pnl_pct),
-                "price_stale": price_stale
-                or ticker not in current_prices,
-            }
-        )
-    return result
 
 
 def get_manual_holdings() -> list[dict]:
@@ -652,8 +586,7 @@ def get_alpaca_positions() -> list[dict]:
 
 def get_portfolio_snapshots(start_date: str = PHASE3_START) -> pd.DataFrame:
     """ポートフォリオスナップショット時系列"""
-    conn = _connect()
-    try:
+    with _connect() as conn:
         df = pd.read_sql_query(
             """
             SELECT timestamp, total_value, cash_balance, equity_value
@@ -667,8 +600,6 @@ def get_portfolio_snapshots(start_date: str = PHASE3_START) -> pd.DataFrame:
         if len(df) > 0:
             df["timestamp"] = pd.to_datetime(df["timestamp"])
         return df
-    finally:
-        conn.close()
 
 
 # ============================================================
@@ -678,8 +609,7 @@ def get_portfolio_snapshots(start_date: str = PHASE3_START) -> pd.DataFrame:
 
 def get_trades(start_date: str = PHASE3_START) -> pd.DataFrame:
     """全トレード（OPEN + CLOSED）"""
-    conn = _connect()
-    try:
+    with _connect() as conn:
         df = pd.read_sql_query(
             """
             SELECT t.id, t.trade_id, t.ticker, t.action,
@@ -697,8 +627,6 @@ def get_trades(start_date: str = PHASE3_START) -> pd.DataFrame:
             params=[start_date],
         )
         return df
-    finally:
-        conn.close()
 
 
 def get_trade_summary(trades_df: pd.DataFrame) -> dict:
@@ -720,7 +648,7 @@ def get_trade_summary(trades_df: pd.DataFrame) -> dict:
         }
 
     winners = closed[closed["profit_loss"] > 0]
-    losers = closed[closed["profit_loss"] < 0]
+    losers = closed[closed["profit_loss"] <= 0]
     total_profit = winners["profit_loss"].sum() if len(winners) > 0 else 0.0
     total_loss = abs(losers["profit_loss"].sum()) if len(losers) > 0 else 0.0
 
@@ -832,8 +760,7 @@ def get_trade_patterns(trades_df: pd.DataFrame) -> dict:
 
 def get_signals(start_date: str = PHASE3_START) -> pd.DataFrame:
     """全シグナル"""
-    conn = _connect()
-    try:
+    with _connect() as conn:
         df = pd.read_sql_query(
             """
             SELECT id, signal_id, ticker, signal_type, detected_at, price,
@@ -848,14 +775,11 @@ def get_signals(start_date: str = PHASE3_START) -> pd.DataFrame:
             params=[start_date],
         )
         return df
-    finally:
-        conn.close()
 
 
 def get_signal_funnel(start_date: str = PHASE3_START) -> dict:
     """シグナルファネル（生成→執行→結果）"""
-    conn = _connect()
-    try:
+    with _connect() as conn:
         row = conn.execute(
             "SELECT COUNT(*) FROM signals WHERE detected_at >= ?", (start_date,)
         ).fetchone()
@@ -873,7 +797,7 @@ def get_signal_funnel(start_date: str = PHASE3_START) -> dict:
         expired = status_counts.get("expired", 0)
         cancelled = status_counts.get("cancelled", 0)
 
-        # 実行されたシグナルの勝敗（signal_trackingが未対応の場合tradesから推定）
+        # 実行されたシグナルの勝敗
         tracking = pd.read_sql_query(
             "SELECT outcome, COUNT(*) as cnt FROM signal_tracking "
             "WHERE outcome IN ('WIN','LOSS') GROUP BY outcome",
@@ -887,21 +811,6 @@ def get_signal_funnel(start_date: str = PHASE3_START) -> dict:
             elif r["outcome"] == "LOSS":
                 losses = r["cnt"]
 
-        # signal_trackingが空の場合、CLOSEDトレードから推定
-        if wins == 0 and losses == 0:
-            closed_trades = conn.execute(
-                "SELECT COUNT(*) FROM trades "
-                "WHERE status='CLOSED' AND profit_loss > 0 AND entry_timestamp >= ?",
-                (start_date,),
-            ).fetchone()
-            wins = closed_trades[0] if closed_trades else 0
-            closed_losses = conn.execute(
-                "SELECT COUNT(*) FROM trades "
-                "WHERE status='CLOSED' AND profit_loss < 0 AND entry_timestamp >= ?",
-                (start_date,),
-            ).fetchone()
-            losses = closed_losses[0] if closed_losses else 0
-
         return {
             "total": total,
             "executed": executed,
@@ -912,14 +821,11 @@ def get_signal_funnel(start_date: str = PHASE3_START) -> dict:
             "losses": losses,
             "execution_rate": round(executed / total * 100, 1) if total > 0 else 0,
         }
-    finally:
-        conn.close()
 
 
 def get_signal_tracking() -> pd.DataFrame:
     """シグナルトラッキング（成績追跡）"""
-    conn = _connect()
-    try:
+    with _connect() as conn:
         df = pd.read_sql_query(
             """
             SELECT ticker, strategy_type, tier, conviction,
@@ -933,8 +839,6 @@ def get_signal_tracking() -> pd.DataFrame:
             conn,
         )
         return df
-    finally:
-        conn.close()
 
 
 # ============================================================
@@ -944,8 +848,7 @@ def get_signal_tracking() -> pd.DataFrame:
 
 def get_system_runs(days: int = 30) -> pd.DataFrame:
     """直近N日のシステム実行履歴"""
-    conn = _connect()
-    try:
+    with _connect() as conn:
         df = pd.read_sql_query(
             f"""
             SELECT run_id, run_mode, environment, started_at, ended_at,
@@ -967,8 +870,6 @@ def get_system_runs(days: int = 30) -> pd.DataFrame:
                     (df["ended_at"] - df["started_at"]).dt.total_seconds() / 60
                 ).round(1)
         return df
-    finally:
-        conn.close()
 
 
 def get_system_health_summary(runs_df: pd.DataFrame) -> dict:
@@ -1016,9 +917,7 @@ def get_system_health_summary(runs_df: pd.DataFrame) -> dict:
 def get_todays_pipeline_status() -> dict:
     """今日のパイプライン各ステップの状態を返す。"""
     today = datetime.now().strftime("%Y-%m-%d")
-    conn = _connect()
-    conn.row_factory = sqlite3.Row
-    try:
+    with _connect() as conn:
         cur = conn.cursor()
 
         # system_runs today
@@ -1137,14 +1036,11 @@ def get_todays_pipeline_status() -> dict:
             "runs_today": runs_today,
             "total_errors": total_errors,
         }
-    finally:
-        conn.close()
 
 
 def get_recent_runs_timeline(days: int = 14) -> pd.DataFrame:
     """日次集計のラン履歴を返す。"""
-    conn = _connect()
-    try:
+    with _connect() as conn:
         df = pd.read_sql_query(
             """
             SELECT date(started_at) as run_date,
@@ -1167,15 +1063,11 @@ def get_recent_runs_timeline(days: int = 14) -> pd.DataFrame:
             params={"offset": f"-{days} days"},
         )
         return df
-    finally:
-        conn.close()
 
 
 def get_pipeline_health_metrics(days: int = 7) -> dict:
     """パイプラインヘルス指標を返す。"""
-    conn = _connect()
-    conn.row_factory = sqlite3.Row
-    try:
+    with _connect() as conn:
         cur = conn.cursor()
         offset = f"-{days} days"
 
@@ -1236,15 +1128,12 @@ def get_pipeline_health_metrics(days: int = 7) -> dict:
             "uptime_pct": round(completed / max(total_runs, 1) * 100, 1),
             "coverage_pct": round(run_days / max(days, 1) * 100, 1),
         }
-    finally:
-        conn.close()
 
 
 def get_todays_news(limit: int = 30) -> pd.DataFrame:
     """今日収集したニュース一覧。"""
     today = datetime.now().strftime("%Y-%m-%d")
-    conn = _connect()
-    try:
+    with _connect() as conn:
         df = pd.read_sql_query(
             """
             SELECT n.title, n.content, n.source, n.url,
@@ -1259,15 +1148,12 @@ def get_todays_news(limit: int = 30) -> pd.DataFrame:
             params=(today, limit),
         )
         return df
-    finally:
-        conn.close()
 
 
 def get_todays_signals() -> pd.DataFrame:
     """今日検出したシグナル一覧。"""
     today = datetime.now().strftime("%Y-%m-%d")
-    conn = _connect()
-    try:
+    with _connect() as conn:
         df = pd.read_sql_query(
             """
             SELECT ticker, signal_type, detected_at, price,
@@ -1282,15 +1168,12 @@ def get_todays_signals() -> pd.DataFrame:
             params=(today,),
         )
         return df
-    finally:
-        conn.close()
 
 
 def get_todays_trades() -> pd.DataFrame:
     """今日の取引一覧。"""
     today = datetime.now().strftime("%Y-%m-%d")
-    conn = _connect()
-    try:
+    with _connect() as conn:
         df = pd.read_sql_query(
             """
             SELECT ticker, action, entry_price, exit_price, shares,
@@ -1304,15 +1187,12 @@ def get_todays_trades() -> pd.DataFrame:
             params=(today, today),
         )
         return df
-    finally:
-        conn.close()
 
 
 def get_todays_analyses(limit: int = 50) -> pd.DataFrame:
     """今日のAI分析結果一覧。"""
     today = datetime.now().strftime("%Y-%m-%d")
-    conn = _connect()
-    try:
+    with _connect() as conn:
         df = pd.read_sql_query(
             """
             SELECT theme, ticker, analysis_type, score, direction,
@@ -1327,5 +1207,3 @@ def get_todays_analyses(limit: int = 50) -> pd.DataFrame:
             params=(today, limit),
         )
         return df
-    finally:
-        conn.close()
