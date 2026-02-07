@@ -639,7 +639,7 @@ with st.sidebar:
 # タブ構造
 # ============================================================
 
-tab_overview, tab_ops, tab_spec, tab_log = st.tabs(["Overview", "投資プロセス", "システム仕様", "詳細ログ"])
+tab_overview, tab_ops, tab_spec = st.tabs(["Overview", "パイプライン", "リファレンス"])
 
 # ============================================================
 # Overview タブ
@@ -1254,10 +1254,13 @@ with tab_overview:
         )
 
 # ============================================================
-# 投資プロセス タブ
+# パイプライン タブ
 # ============================================================
 
 with tab_ops:
+
+    import json as _json
+    from datetime import date as _date
 
     WEEKDAY_JP = ["月", "火", "水", "木", "金", "土", "日"]
     MODE_LABELS = {
@@ -1266,30 +1269,44 @@ with tab_ops:
         "light": "モニタリング",
     }
 
-    # ── データ読み込み ──
-    pipeline = load_pipeline_status()
+    # ── 日付選択 ──
+    log_dates = _dm.get_available_log_dates(30)
+    if log_dates:
+        date_options = [_date.fromisoformat(d) for d in log_dates]
+    else:
+        date_options = [_date.today()]
+
+    hdr_cols = st.columns([4, 1])
+    with hdr_cols[0]:
+        st.markdown(
+            '<div style="font-size:0.78rem; color:#64748b; margin-top:0.3rem">'
+            "日付を選んでパイプラインの実行内容を確認できます。"
+            "各ステップをクリックすると詳細が展開されます。"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+    with hdr_cols[1]:
+        selected_date = st.date_input(
+            "日付",
+            value=date_options[0],
+            label_visibility="collapsed",
+        )
+    target = selected_date.isoformat()
+    wd_jp = WEEKDAY_JP[selected_date.weekday()]
+
+    # ── データ読み込み（選択日付で） ──
+    pipeline = _dm.get_pipeline_status(target)
+    summary = _dm.get_log_day_summary(target)
     timeline_df = load_runs_timeline()
     health = load_health_metrics()
 
-    # ── タブ説明 ──
-
-    st.markdown(
-        '<div class="wf-intro">'
-        "<b>投資プロセス — 本日の運用状況</b><br>"
-        "このタブでは「今日、システムが何をしたか」をリアルタイムで確認できます。"
-        "5つのステップの進行状況・実行結果・詳細データを表示します。"
-        "各ステップの<b>仕組みや設定値</b>は「システム仕様」タブを参照してください。"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-    # ── 1. 本日の投資プロセス ──
+    # ── 1. パイプライン概要 ──
 
     st.markdown(
         f'<div class="sec-hdr">'
         f'<div class="bar" style="background:{P}"></div>'
-        f'<div class="txt">本日の投資プロセス'
-        f'<span class="sub">{pipeline["date"]}</span></div>'
+        f'<div class="txt">パイプライン概要'
+        f'<span class="sub">{target} ({wd_jp})</span></div>'
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -1719,21 +1736,57 @@ with tab_ops:
             unsafe_allow_html=True,
         )
 
-    # ── 4. プロセス詳細（ドリルダウン） ──
+    # ── 4. ステップ詳細（ドリルダウン） ──
 
     st.markdown(
         f'<div class="sec-hdr">'
         f'<div class="bar" style="background:#64748b"></div>'
-        f'<div class="txt">プロセス詳細'
-        f'<span class="sub">各ステップの中身を確認</span></div>'
+        f'<div class="txt">ステップ詳細'
+        f'<span class="sub">{target} ({wd_jp}) の記録</span></div>'
         f"</div>",
         unsafe_allow_html=True,
     )
 
+    # 4-0: システム実行
+    log_runs = _dm.get_log_system_runs(target)
+    with st.expander(f"⚙️ システム実行 ({len(log_runs)}件)", expanded=len(log_runs) > 0 and summary["news"] == 0):
+        if len(log_runs) > 0:
+            for _, run in log_runs.iterrows():
+                r_mode = run.get("run_mode", "")
+                r_status = run.get("status", "")
+                r_started = str(run.get("started_at", ""))[:19].replace("T", " ")
+                r_ended = str(run.get("ended_at", "") or "")[:19].replace("T", " ")
+                r_host = run.get("host_name", "") or ""
+                r_news = run.get("news_collected", 0) or 0
+                r_sig = run.get("signals_detected", 0) or 0
+                r_trd = run.get("trades_executed", 0) or 0
+                r_err = run.get("errors_count", 0) or 0
+                r_msg = run.get("error_message", "") or ""
+                s_c = W if r_status == "completed" else (L if r_status == "failed" else "#f59e0b")
+                detail_r = (
+                    f'<div class="dd-detail">'
+                    f'<div class="dd-kv"><span class="dd-k">開始</span><span class="dd-v">{r_started}</span></div>'
+                    f'<div class="dd-kv"><span class="dd-k">終了</span><span class="dd-v">{r_ended}</span></div>'
+                    f'<div class="dd-kv"><span class="dd-k">ホスト</span><span class="dd-v">{r_host}</span></div>'
+                    f'<div class="dd-kv"><span class="dd-k">処理</span><span class="dd-v">ニュース{r_news} / シグナル{r_sig} / 取引{r_trd}</span></div>'
+                    + (f'<div class="dd-kv"><span class="dd-k">エラー</span><span class="dd-v" style="color:{L}">{r_err}件: {r_msg}</span></div>' if r_err else "")
+                    + f"</div>"
+                )
+                st.markdown(
+                    f'<div class="dd-item"><details><summary class="dd-summary">'
+                    f'<span style="color:{s_c}; font-weight:600">{r_status}</span> '
+                    f'<b>{MODE_LABELS.get(r_mode, r_mode)}</b> '
+                    f'<span style="color:#94a3b8">{r_started[11:16]}</span>'
+                    f'</summary>{detail_r}</details></div>',
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.markdown('<span style="color:#94a3b8; font-size:0.82rem">この日の実行記録はありません</span>', unsafe_allow_html=True)
+
     # 4a: 情報収集
-    news_cnt = pipeline["steps"]["news"]["count"]
-    with st.expander(f"Step 1. 情報収集 - {news_cnt}件", expanded=False):
-        today_news = _dm.get_todays_news()
+    news_cnt = summary["news"]
+    with st.expander(f"📰 Step 1. ニュース収集 ({news_cnt:,}件)", expanded=False):
+        today_news = _dm.get_log_news(target)
         if len(today_news) > 0:
             news_html = ""
             for _, n in today_news.iterrows():
@@ -1786,7 +1839,7 @@ with tab_ops:
     # 4b: AI分析
     analysis_cnt = pipeline["steps"]["analysis"]["count"]
     with st.expander(f"Step 2. AI分析 - {analysis_cnt}件", expanded=False):
-        today_analysis = _dm.get_todays_analyses()
+        today_analysis = _dm.get_log_analyses(target)
         if len(today_analysis) > 0:
             ana_html = ""
             for _, a in today_analysis.iterrows():
@@ -1874,7 +1927,7 @@ with tab_ops:
     # 4c: 売買判断
     sig_cnt = pipeline["steps"]["signals"]["count"]
     with st.expander(f"Step 3. 売買判断 - {sig_cnt}件", expanded=False):
-        today_sigs = _dm.get_todays_signals()
+        today_sigs = _dm.get_log_signals(target)
         if len(today_sigs) > 0:
             sig_html = ""
             for _, s in today_sigs.iterrows():
@@ -1895,7 +1948,7 @@ with tab_ops:
                 }.get(status_s, status_s)
                 reasoning = s.get("reasoning", "") or ""
                 df_raw = s.get("decision_factors_json", "") or ""
-                target = s.get("target_price") or 0
+                target_p = s.get("target_price") or 0
                 sl = s.get("stop_loss") or 0
                 rsi = s.get("rsi")
                 macd = s.get("macd")
@@ -1912,8 +1965,8 @@ with tab_ops:
                 detail_rows += f'<div class="dd-kv"><span class="dd-k">信頼度</span><span class="dd-v">{conf:.0%}</span></div>'
                 if conv:
                     detail_rows += f'<div class="dd-kv"><span class="dd-k">確信度</span><span class="dd-v">{conv:.0f} / 10</span></div>'
-                if target:
-                    detail_rows += f'<div class="dd-kv"><span class="dd-k">目標価格</span><span class="dd-v">${target:.2f}</span></div>'
+                if target_p:
+                    detail_rows += f'<div class="dd-kv"><span class="dd-k">目標価格</span><span class="dd-v">${target_p:.2f}</span></div>'
                 if sl:
                     detail_rows += f'<div class="dd-kv"><span class="dd-k">損切ライン</span><span class="dd-v">${sl:.2f}</span></div>'
                 if rsi is not None and pd.notna(rsi):
@@ -1957,7 +2010,7 @@ with tab_ops:
     # 4d: 注文執行
     trade_cnt = pipeline["steps"]["trading"]["count"]
     with st.expander(f"Step 4. 注文執行 - {trade_cnt}件", expanded=False):
-        today_trades = _dm.get_todays_trades()
+        today_trades = _dm.get_log_trades(target)
         if len(today_trades) > 0:
             trade_html = ""
             for _, t in today_trades.iterrows():
@@ -2947,443 +3000,3 @@ with tab_spec:
         unsafe_allow_html=True,
     )
 
-# ============================================================
-# 詳細ログ タブ
-# ============================================================
-
-with tab_log:
-
-    import json as _json
-
-    st.markdown(
-        '<div class="wf-intro">'
-        "<b>詳細ログ — パイプライン実行の記録</b><br>"
-        "日付を選んで、その日に収集されたニュース・AI分析・シグナル・取引の詳細を確認できます。"
-        "各ステップで「何が入力され、どう判断されたか」を追跡するためのログビューです。"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-    # 日付選択
-    log_dates = _dm.get_available_log_dates(30)
-    if log_dates:
-        from datetime import date as _date
-
-        date_options = [_date.fromisoformat(d) for d in log_dates]
-        selected_date = st.date_input(
-            "ログ日付",
-            value=date_options[0],
-            min_value=date_options[-1] if date_options else None,
-            max_value=date_options[0] if date_options else None,
-        )
-        target = selected_date.isoformat()
-
-        # 概要サマリー
-        summary = _dm.get_log_day_summary(target)
-
-        WEEKDAY_JP_LOG = ["月", "火", "水", "木", "金", "土", "日"]
-        wd = WEEKDAY_JP_LOG[selected_date.weekday()]
-
-        sum_cols = st.columns(5)
-        sum_items = [
-            ("ニュース", summary["news"], "📰"),
-            ("AI分析", summary["analysis"], "🧠"),
-            ("シグナル", summary["signals"], "🎯"),
-            ("取引", summary["trades"], "💰"),
-            ("実行", summary["runs"], "⚙️"),
-        ]
-        for col, (label, cnt, icon) in zip(sum_cols, sum_items):
-            cnt_color = "#0f172a" if cnt > 0 else "#cbd5e1"
-            with col:
-                st.markdown(
-                    f'<div class="card-sm" style="text-align:center; padding:0.6rem 0.3rem">'
-                    f'<div style="font-size:1rem">{icon}</div>'
-                    f'<div style="font-size:1.2rem; font-weight:700; color:{cnt_color}">{cnt}</div>'
-                    f'<div style="font-size:0.65rem; color:#94a3b8">{label}</div>'
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
-
-        st.markdown(
-            f'<div style="text-align:center; font-size:0.72rem; color:#64748b; margin:0.3rem 0 0.8rem">'
-            f'{target} ({wd}) のパイプラインログ</div>',
-            unsafe_allow_html=True,
-        )
-
-        # ── 1. システム実行ログ ──
-        log_runs = _dm.get_log_system_runs(target)
-        with st.expander(f"⚙️ システム実行ログ ({len(log_runs)}件)", expanded=len(log_runs) > 0):
-            if len(log_runs) > 0:
-                for _, run in log_runs.iterrows():
-                    mode = run.get("run_mode", "")
-                    status = run.get("status", "")
-                    started = str(run.get("started_at", ""))[:19].replace("T", " ")
-                    ended = str(run.get("ended_at", "") or "")[:19].replace("T", " ")
-                    host = run.get("host_name", "") or ""
-                    news_c = run.get("news_collected", 0) or 0
-                    sig_d = run.get("signals_detected", 0) or 0
-                    trd_e = run.get("trades_executed", 0) or 0
-                    errs = run.get("errors_count", 0) or 0
-                    err_msg = run.get("error_message", "") or ""
-                    s_color = W if status == "completed" else (L if status == "failed" else "#f59e0b")
-                    st.markdown(
-                        f'<div class="dd-item"><details>'
-                        f'<summary class="dd-summary">'
-                        f'<span style="color:{s_color}; font-weight:600">{status}</span> '
-                        f'<b>{mode}</b> '
-                        f'<span style="color:#94a3b8">{started}</span>'
-                        f'</summary>'
-                        f'<div class="dd-detail">'
-                        f'<div class="dd-kv"><span class="dd-k">開始</span><span class="dd-v">{started}</span></div>'
-                        f'<div class="dd-kv"><span class="dd-k">終了</span><span class="dd-v">{ended}</span></div>'
-                        f'<div class="dd-kv"><span class="dd-k">ホスト</span><span class="dd-v">{host}</span></div>'
-                        f'<div class="dd-kv"><span class="dd-k">ニュース</span><span class="dd-v">{news_c}件</span></div>'
-                        f'<div class="dd-kv"><span class="dd-k">シグナル</span><span class="dd-v">{sig_d}件</span></div>'
-                        f'<div class="dd-kv"><span class="dd-k">取引</span><span class="dd-v">{trd_e}件</span></div>'
-                        f'<div class="dd-kv"><span class="dd-k">エラー</span><span class="dd-v">{errs}件</span></div>'
-                        + (f'<div class="dd-kv"><span class="dd-k">エラー内容</span><span class="dd-v" style="color:{L}">{err_msg}</span></div>' if err_msg else "")
-                        + f"</div></details></div>",
-                        unsafe_allow_html=True,
-                    )
-            else:
-                st.markdown('<span style="color:#94a3b8; font-size:0.82rem">この日のシステム実行はありません</span>', unsafe_allow_html=True)
-
-        # ── 2. ニュース収集ログ ──
-        log_news = _dm.get_log_news(target)
-        with st.expander(f"📰 ニュース収集ログ ({len(log_news)}件)", expanded=False):
-            if len(log_news) > 0:
-                # ソース別集計
-                src_counts = log_news["source"].value_counts().head(10)
-                src_pills = " ".join(
-                    f'<span class="pill pill-blue" style="font-size:0.6rem; margin:0.1rem">{src} ({cnt})</span>'
-                    for src, cnt in src_counts.items()
-                )
-                st.markdown(
-                    f'<div style="margin-bottom:0.5rem; font-size:0.72rem; color:#64748b">'
-                    f'ソース: {src_pills}</div>',
-                    unsafe_allow_html=True,
-                )
-
-                # ティッカーフィルター
-                all_tickers_set = set()
-                for tj in log_news["tickers_json"].dropna():
-                    try:
-                        for t in _json.loads(tj):
-                            all_tickers_set.add(t)
-                    except Exception:
-                        pass
-                ticker_filter = st.selectbox(
-                    "銘柄フィルター",
-                    ["すべて"] + sorted(all_tickers_set),
-                    key="news_ticker_filter",
-                )
-
-                filtered_news = log_news
-                if ticker_filter != "すべて":
-                    filtered_news = log_news[
-                        log_news["tickers_json"].fillna("").str.contains(ticker_filter)
-                    ]
-
-                for _, n in filtered_news.head(50).iterrows():
-                    title = n.get("title", "") or ""
-                    source = n.get("source", "") or ""
-                    content = n.get("content", "") or ""
-                    theme = n.get("theme", "") or ""
-                    tickers_raw = n.get("tickers_json", "") or ""
-                    sent = n.get("sentiment_score")
-                    quality = n.get("quality_score")
-                    importance = n.get("importance", "") or ""
-                    created = str(n.get("created_at", ""))[:19].replace("T", " ")
-                    url = n.get("url", "") or ""
-
-                    # ティッカーピル
-                    tk_pills = ""
-                    try:
-                        tickers = _json.loads(tickers_raw) if tickers_raw else []
-                        for tk in tickers[:8]:
-                            tk_pills += f'<span style="font-size:0.6rem; color:{P}; margin-right:0.2rem">${tk}</span>'
-                    except Exception:
-                        pass
-
-                    detail = ""
-                    if content:
-                        detail += f'<div class="dd-kv"><span class="dd-k">内容</span><span class="dd-v">{content[:500]}</span></div>'
-                    if sent is not None and pd.notna(sent):
-                        s_color = W if sent > 0 else (L if sent < 0 else "#94a3b8")
-                        detail += f'<div class="dd-kv"><span class="dd-k">感情</span><span class="dd-v" style="color:{s_color}">{sent:+.2f}</span></div>'
-                    if quality is not None and pd.notna(quality):
-                        detail += f'<div class="dd-kv"><span class="dd-k">品質</span><span class="dd-v">{quality:.0f}/100</span></div>'
-                    if importance:
-                        detail += f'<div class="dd-kv"><span class="dd-k">重要度</span><span class="dd-v">{importance}</span></div>'
-                    if theme:
-                        detail += f'<div class="dd-kv"><span class="dd-k">テーマ</span><span class="dd-v">{theme}</span></div>'
-                    if tk_pills:
-                        detail += f'<div class="dd-kv"><span class="dd-k">関連銘柄</span><span class="dd-v">{tk_pills}</span></div>'
-                    if url:
-                        detail += f'<div class="dd-kv"><span class="dd-k">URL</span><span class="dd-v"><a href="{url}" target="_blank" style="color:{P}">{url[:80]}</a></span></div>'
-                    detail += f'<div class="dd-kv"><span class="dd-k">取得時刻</span><span class="dd-v">{created}</span></div>'
-
-                    st.markdown(
-                        f'<div class="dd-item"><details>'
-                        f'<summary class="dd-summary">{title}'
-                        f'<span style="color:#94a3b8; font-size:0.68rem; margin-left:0.3rem">{source}</span>'
-                        f'</summary>'
-                        f'<div class="dd-detail">{detail}</div>'
-                        f'</details></div>',
-                        unsafe_allow_html=True,
-                    )
-
-                if len(filtered_news) > 50:
-                    st.markdown(
-                        f'<div style="color:#94a3b8; font-size:0.72rem; text-align:center; padding:0.5rem">'
-                        f'他 {len(filtered_news) - 50}件は省略</div>',
-                        unsafe_allow_html=True,
-                    )
-            else:
-                st.markdown('<span style="color:#94a3b8; font-size:0.82rem">この日のニュースはありません</span>', unsafe_allow_html=True)
-
-        # ── 3. AI分析ログ ──
-        log_analyses = _dm.get_log_analyses(target)
-        with st.expander(f"🧠 AI分析ログ ({len(log_analyses)}件)", expanded=False):
-            if len(log_analyses) > 0:
-                for _, a in log_analyses.iterrows():
-                    theme = a.get("theme", "") or ""
-                    ticker = a.get("ticker", "") or ""
-                    a_type = a.get("analysis_type", "") or ""
-                    score = a.get("score") or 0
-                    direction = a.get("direction", "") or ""
-                    summary_txt = a.get("summary", "") or ""
-                    detailed = a.get("detailed_analysis", "") or ""
-                    kp_raw = a.get("key_points_json", "") or ""
-                    rec = a.get("recommendation", "") or ""
-                    model = a.get("model_used", "") or ""
-                    time_a = str(a.get("analyzed_at", ""))[:19].replace("T", " ")
-
-                    dir_label = {"bullish": "強気", "bearish": "弱気", "neutral": "中立"}.get(direction, direction)
-                    dir_color = W if direction == "bullish" else (L if direction == "bearish" else "#64748b")
-                    type_label = {"theme_report": "テーマ", "ticker_analysis": "銘柄", "impact_analysis": "インパクト"}.get(a_type, a_type)
-
-                    header = (
-                        f'<span class="pill pill-blue" style="font-size:0.6rem; padding:0.03rem 0.25rem">{type_label}</span> '
-                        f'<b>{theme}</b>'
-                    )
-                    if ticker:
-                        header += f' <span style="color:{P}; font-weight:600">{ticker}</span>'
-                    header += f' <span style="color:{dir_color}; font-weight:600">スコア{score:.0f} / {dir_label}</span>'
-
-                    detail = ""
-                    if rec:
-                        detail += f'<div class="dd-kv"><span class="dd-k">推奨</span><span class="dd-v" style="font-weight:600">{rec}</span></div>'
-                    if summary_txt:
-                        detail += f'<div class="dd-kv"><span class="dd-k">要約</span><span class="dd-v">{summary_txt}</span></div>'
-                    try:
-                        kps = _json.loads(kp_raw) if kp_raw else []
-                        if kps:
-                            kp_list = "".join(f"<li>{kp}</li>" for kp in kps[:8])
-                            detail += f'<div class="dd-kv"><span class="dd-k">注目点</span><span class="dd-v"><ul style="margin:0; padding-left:1.2rem">{kp_list}</ul></span></div>'
-                    except Exception:
-                        pass
-                    if detailed:
-                        detail += (
-                            f'<div style="margin-top:0.4rem; padding-top:0.4rem; border-top:1px solid #e2e8f0">'
-                            f'<span class="dd-k">詳細分析</span>'
-                            f'<div style="margin-top:0.2rem; white-space:pre-wrap; font-size:0.72rem">{detailed[:1200]}</div></div>'
-                        )
-                    detail += f'<div class="dd-kv" style="margin-top:0.3rem"><span class="dd-k">モデル</span><span class="dd-v">{model} / {time_a}</span></div>'
-
-                    st.markdown(
-                        f'<div class="dd-item"><details>'
-                        f'<summary class="dd-summary">{header}</summary>'
-                        f'<div class="dd-detail">{detail}</div>'
-                        f'</details></div>',
-                        unsafe_allow_html=True,
-                    )
-            else:
-                st.markdown('<span style="color:#94a3b8; font-size:0.82rem">この日のAI分析はありません</span>', unsafe_allow_html=True)
-
-        # ── 4. シグナルログ ──
-        log_signals = _dm.get_log_signals(target)
-        with st.expander(f"🎯 シグナルログ ({len(log_signals)}件)", expanded=len(log_signals) > 0):
-            if len(log_signals) > 0:
-                for _, s in log_signals.iterrows():
-                    sig_type = s["signal_type"]
-                    sig_label = "買い" if sig_type == "BUY" else "売り"
-                    sig_cls = "pill-green" if sig_type == "BUY" else "pill-red"
-                    ticker = s["ticker"]
-                    price = s.get("price", 0) or 0
-                    conv = s.get("conviction") or 0
-                    conf = s.get("confidence") or 0
-                    status_s = s.get("status", "")
-                    rsi = s.get("rsi")
-                    macd = s.get("macd")
-                    ma200 = s.get("ma200")
-                    vol_ratio = s.get("volume_ratio")
-                    target_p = s.get("target_price")
-                    sl = s.get("stop_loss")
-                    reasoning = s.get("reasoning", "") or ""
-                    df_raw = s.get("decision_factors_json", "") or ""
-                    time_s = str(s.get("detected_at", ""))[:19].replace("T", " ")
-
-                    status_label = {
-                        "pending": "待機中", "executed": "執行済", "rejected": "見送り",
-                        "cancelled": "取消", "expired": "期限切れ",
-                    }.get(status_s, status_s)
-
-                    header = (
-                        f'<span class="pill {sig_cls}" style="font-size:0.7rem">{sig_label}</span> '
-                        f'<b>{ticker}</b> '
-                        f'<span style="color:#64748b">@${price:.2f}</span> '
-                        f'<span class="pill pill-blue" style="font-size:0.58rem; padding:0.03rem 0.25rem">{status_label}</span>'
-                    )
-                    if conv:
-                        header += f' <span style="color:#64748b; font-size:0.72rem">確信度 {conv}/10</span>'
-
-                    detail = ""
-                    detail += f'<div class="dd-kv"><span class="dd-k">検出時刻</span><span class="dd-v">{time_s}</span></div>'
-                    if conv:
-                        detail += f'<div class="dd-kv"><span class="dd-k">確信度</span><span class="dd-v">{conv} / 10</span></div>'
-                    if conf:
-                        detail += f'<div class="dd-kv"><span class="dd-k">信頼度</span><span class="dd-v">{conf:.0%}</span></div>'
-                    if rsi is not None and pd.notna(rsi):
-                        rsi_color = L if rsi > 70 else (W if rsi < 30 else "#0f172a")
-                        detail += f'<div class="dd-kv"><span class="dd-k">RSI</span><span class="dd-v" style="color:{rsi_color}">{rsi:.1f}</span></div>'
-                    if macd is not None and pd.notna(macd):
-                        detail += f'<div class="dd-kv"><span class="dd-k">MACD</span><span class="dd-v">{macd:.4f}</span></div>'
-                    if ma200 is not None and pd.notna(ma200):
-                        above = price > ma200 if price and ma200 else False
-                        ma_label = f"${ma200:.2f}" + (" (上)" if above else " (下)")
-                        detail += f'<div class="dd-kv"><span class="dd-k">200日MA</span><span class="dd-v">{ma_label}</span></div>'
-                    if vol_ratio is not None and pd.notna(vol_ratio):
-                        detail += f'<div class="dd-kv"><span class="dd-k">出来高比</span><span class="dd-v">{vol_ratio:.2f}x</span></div>'
-                    if target_p:
-                        detail += f'<div class="dd-kv"><span class="dd-k">目標価格</span><span class="dd-v">${target_p:.2f}</span></div>'
-                    if sl:
-                        detail += f'<div class="dd-kv"><span class="dd-k">損切ライン</span><span class="dd-v">${sl:.2f}</span></div>'
-                    if reasoning:
-                        detail += (
-                            f'<div style="margin-top:0.4rem; padding-top:0.4rem; border-top:1px solid #e2e8f0">'
-                            f'<span class="dd-k">判断理由</span>'
-                            f'<div style="margin-top:0.2rem; white-space:pre-wrap; font-size:0.72rem">{reasoning}</div></div>'
-                        )
-
-                    # decision_factors 詳細展開
-                    if df_raw:
-                        try:
-                            factors = _json.loads(df_raw)
-                            if isinstance(factors, dict):
-                                factor_detail = ""
-                                # ニュース関連
-                                ns = factors.get("news_score")
-                                nr = factors.get("news_reason", "")
-                                if ns is not None:
-                                    ns_color = W if ns > 0 else (L if ns < 0 else "#94a3b8")
-                                    factor_detail += f'<div class="dd-kv"><span class="dd-k">ニューススコア</span><span class="dd-v" style="color:{ns_color}">{ns:+.2f}</span></div>'
-                                if nr:
-                                    factor_detail += f'<div class="dd-kv"><span class="dd-k">ニュース理由</span><span class="dd-v">{nr}</span></div>'
-                                # テクニカル
-                                tr = factors.get("technical_reason", "")
-                                if tr:
-                                    factor_detail += f'<div class="dd-kv"><span class="dd-k">テクニカル</span><span class="dd-v">{tr}</span></div>'
-                                fr = factors.get("fundamental_reason", "")
-                                if fr:
-                                    factor_detail += f'<div class="dd-kv"><span class="dd-k">ファンダ</span><span class="dd-v">{fr}</span></div>'
-                                # 戦略/カテゴリ
-                                strat = factors.get("strategy_type", "")
-                                cats = factors.get("categories", [])
-                                if strat:
-                                    factor_detail += f'<div class="dd-kv"><span class="dd-k">戦略</span><span class="dd-v">{strat}</span></div>'
-                                if cats:
-                                    factor_detail += f'<div class="dd-kv"><span class="dd-k">カテゴリ</span><span class="dd-v">{", ".join(cats)}</span></div>'
-                                # SELL詳細
-                                dr = factors.get("detailed_reason", "")
-                                chg = factors.get("change_pct")
-                                if dr:
-                                    factor_detail += f'<div class="dd-kv"><span class="dd-k">詳細根拠</span><span class="dd-v">{dr}</span></div>'
-                                if chg is not None:
-                                    chg_color = W if chg > 0 else L
-                                    factor_detail += f'<div class="dd-kv"><span class="dd-k">変動率</span><span class="dd-v" style="color:{chg_color}">{chg:+.1f}%</span></div>'
-
-                                if factor_detail:
-                                    detail += (
-                                        f'<div style="margin-top:0.4rem; padding-top:0.4rem; border-top:1px solid #e2e8f0">'
-                                        f'<span class="dd-k" style="font-weight:600">判断要因</span>'
-                                        f'{factor_detail}</div>'
-                                    )
-                        except Exception:
-                            pass
-
-                    st.markdown(
-                        f'<div class="dd-item"><details open>'
-                        f'<summary class="dd-summary">{header}</summary>'
-                        f'<div class="dd-detail">{detail}</div>'
-                        f'</details></div>',
-                        unsafe_allow_html=True,
-                    )
-            else:
-                st.markdown('<span style="color:#94a3b8; font-size:0.82rem">この日のシグナルはありません</span>', unsafe_allow_html=True)
-
-        # ── 5. 取引ログ ──
-        log_trades = _dm.get_log_trades(target)
-        with st.expander(f"💰 取引ログ ({len(log_trades)}件)", expanded=len(log_trades) > 0):
-            if len(log_trades) > 0:
-                for _, t in log_trades.iterrows():
-                    action = t["action"]
-                    a_label = "買い" if action == "BUY" else "売り"
-                    a_cls = "pill-green" if action == "BUY" else "pill-red"
-                    ticker = t["ticker"]
-                    entry_p = t["entry_price"]
-                    exit_p = t.get("exit_price")
-                    shares = int(t["shares"])
-                    pnl = t.get("profit_loss") or 0
-                    pnl_pct = t.get("profit_loss_pct") or 0
-                    status_t = t.get("status", "")
-                    exit_reason = t.get("exit_reason", "") or ""
-                    strategy = t.get("strategy_used", "") or ""
-                    notes = t.get("notes", "") or ""
-                    entry_ts = str(t.get("entry_timestamp", ""))[:19].replace("T", " ")
-                    exit_ts = str(t.get("exit_timestamp", "") or "")[:19].replace("T", " ")
-                    holding = t.get("holding_days")
-
-                    pnl_c = "c-pos" if pnl >= 0 else "c-neg"
-                    pnl_s = "+" if pnl >= 0 else ""
-
-                    if status_t == "CLOSED":
-                        pnl_txt = f'<span class="{pnl_c}" style="font-weight:600">{pnl_s}${pnl:,.2f} ({pnl_s}{pnl_pct:.1f}%)</span>'
-                    else:
-                        pnl_txt = '<span class="pill pill-blue" style="font-size:0.6rem">保有中</span>'
-
-                    header = (
-                        f'<span class="pill {a_cls}" style="font-size:0.7rem">{a_label}</span> '
-                        f'<b>{ticker}</b> '
-                        f'<span style="color:#64748b">{shares}株 @${entry_p:.2f}</span> {pnl_txt}'
-                    )
-
-                    detail = ""
-                    detail += f'<div class="dd-kv"><span class="dd-k">エントリー</span><span class="dd-v">${entry_p:.2f} ({entry_ts})</span></div>'
-                    if exit_p and pd.notna(exit_p):
-                        detail += f'<div class="dd-kv"><span class="dd-k">エグジット</span><span class="dd-v">${exit_p:.2f} ({exit_ts})</span></div>'
-                    if holding is not None and pd.notna(holding):
-                        detail += f'<div class="dd-kv"><span class="dd-k">保有日数</span><span class="dd-v">{int(holding)}日</span></div>'
-                    if exit_reason:
-                        reason_label = {"STOP_LOSS": "損切り", "TAKE_PROFIT": "利確", "SIGNAL": "シグナル", "MANUAL": "手動"}.get(exit_reason, exit_reason)
-                        detail += f'<div class="dd-kv"><span class="dd-k">決済理由</span><span class="dd-v">{reason_label}</span></div>'
-                    if strategy:
-                        detail += f'<div class="dd-kv"><span class="dd-k">戦略</span><span class="dd-v">{strategy}</span></div>'
-                    if notes:
-                        detail += f'<div class="dd-kv"><span class="dd-k">メモ</span><span class="dd-v">{notes}</span></div>'
-
-                    st.markdown(
-                        f'<div class="dd-item"><details>'
-                        f'<summary class="dd-summary">{header}</summary>'
-                        f'<div class="dd-detail">{detail}</div>'
-                        f'</details></div>',
-                        unsafe_allow_html=True,
-                    )
-            else:
-                st.markdown('<span style="color:#94a3b8; font-size:0.82rem">この日の取引はありません</span>', unsafe_allow_html=True)
-    else:
-        st.markdown(
-            '<div style="color:#94a3b8; text-align:center; padding:2rem; font-size:0.82rem">'
-            "直近30日間のログデータがありません</div>",
-            unsafe_allow_html=True,
-        )
