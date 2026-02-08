@@ -308,12 +308,25 @@ def get_spy_benchmark(start_date: str = PHASE3_START) -> pd.DataFrame:
 
 
 def get_last_system_run() -> dict | None:
-    """最新のシステム実行情報を1件返す"""
+    """最新のシステム実行情報を1件返す。
+
+    1時間以上前の 'running' レコードは orphaned（異常終了で更新されなかった）
+    とみなしてスキップし、最新の確定済みランを返す。
+    """
     with _connect() as conn:
+        # まず最新の確定済み（completed/failed/interrupted）を取得
         row = conn.execute(
             "SELECT started_at, status, errors_count, error_message "
-            "FROM system_runs ORDER BY started_at DESC LIMIT 1"
+            "FROM system_runs "
+            "WHERE status != 'running' "
+            "ORDER BY started_at DESC LIMIT 1"
         ).fetchone()
+        if row is None:
+            # 確定済みがなければ最新を返す（全部runningの場合）
+            row = conn.execute(
+                "SELECT started_at, status, errors_count, error_message "
+                "FROM system_runs ORDER BY started_at DESC LIMIT 1"
+            ).fetchone()
         if row is None:
             return None
         return {

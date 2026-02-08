@@ -52,7 +52,8 @@ with st.sidebar:
     last_run = data["last_run"]
     if last_run:
         run_time = last_run["started_at"][:16].replace("T", " ")
-        if last_run["status"] == "completed":
+        run_status = last_run["status"]
+        if run_status == "completed":
             st.markdown(
                 f'<div style="font-size:0.78rem; color:#64748b; margin-top:0.5rem">'
                 f'<span class="status-dot status-dot-ok"></span>'
@@ -60,11 +61,19 @@ with st.sidebar:
                 f"<br>{run_time}</div>",
                 unsafe_allow_html=True,
             )
+        elif run_status == "running":
+            st.markdown(
+                f'<div style="font-size:0.78rem; color:#64748b; margin-top:0.5rem">'
+                f'<span class="status-dot status-dot-warn"></span>'
+                f'<span style="color:#d97706; font-weight:600">実行中</span>'
+                f"<br>{run_time}</div>",
+                unsafe_allow_html=True,
+            )
         else:
             err = (
                 last_run["error_message"][:40]
                 if last_run["error_message"]
-                else last_run["status"]
+                else run_status
             )
             st.markdown(
                 f'<div style="font-size:0.78rem; color:#64748b; margin-top:0.5rem">'

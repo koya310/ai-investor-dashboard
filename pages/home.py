@@ -179,10 +179,28 @@ _pnl_total = kpi.get("total_pnl", 0)
 _pnl_color = W if _pnl_total >= 0 else L
 _pnl_sign = "+" if _pnl_total >= 0 else ""
 _last_run = d["last_run"]
-_sys_ok = _last_run and _last_run["status"] == "completed"
-_sys_cls = "qs-card-ok" if _sys_ok else "qs-card-ng"
-_sys_label = "正常稼働" if _sys_ok else "異常あり"
-_sys_dot = "status-dot-ok" if _sys_ok else "status-dot-ng"
+if _last_run:
+    _run_status = _last_run["status"]
+    if _run_status == "completed":
+        _sys_ok = True
+        _sys_cls = "qs-card-ok"
+        _sys_label = "正常稼働"
+        _sys_dot = "status-dot-ok"
+    elif _run_status == "running":
+        _sys_ok = True
+        _sys_cls = "qs-card-warn"
+        _sys_label = "実行中"
+        _sys_dot = "status-dot-warn"
+    else:
+        _sys_ok = False
+        _sys_cls = "qs-card-ng"
+        _sys_label = "異常あり"
+        _sys_dot = "status-dot-ng"
+else:
+    _sys_ok = False
+    _sys_cls = "qs-card-ng"
+    _sys_label = "データなし"
+    _sys_dot = "status-dot-ng"
 _wr_cls = "qs-card-ok" if _wr >= _targets["win_rate"] else ("qs-card-warn" if _wr >= 40 else "qs-card-ng")
 
 st.markdown(
