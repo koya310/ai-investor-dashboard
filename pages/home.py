@@ -44,7 +44,7 @@ def show_analysis_dialog():
         ("勝敗", f"{summary['wins']}勝 {summary['losses']}敗"),
         ("勝率", f"{summary['win_rate']}%"),
         ("累積損益", f"${summary['total_pnl']:+,.0f}"),
-        ("プロフィットファクター", f"{summary['profit_factor']:.2f}"),
+        ("プロフィットファクター", "∞（損失なし）" if summary['profit_factor'] == float('inf') else f"{summary['profit_factor']:.2f}"),
         ("平均利益（勝ち）", f"{summary['avg_profit_pct']:+.2f}%"),
         ("平均損失（負け）", f"{summary['avg_loss_pct']:+.2f}%"),
         ("最大利益", f"{summary['largest_win_pct']:+.2f}%"),
@@ -73,9 +73,10 @@ def show_analysis_dialog():
                     f"（勝ち平均{summary['avg_profit_pct']:+.2f}% vs 負け平均{summary['avg_loss_pct']:+.2f}%）。"
                     "利確を伸ばすか、損切りを早くする必要あり。"
                 )
-        if summary["profit_factor"] < 1.0:
+        pf = summary["profit_factor"]
+        if pf != float("inf") and pf < 1.0:
             insights.append(
-                f"プロフィットファクターが{summary['profit_factor']:.2f}（1.0未満 = 損失 > 利益）。"
+                f"プロフィットファクターが{pf:.2f}（1.0未満 = 損失 > 利益）。"
                 "トータルで負けている状態。"
             )
 
@@ -227,6 +228,18 @@ with _verdict_cols[1]:
     st.markdown('<div style="height:0.4rem"></div>', unsafe_allow_html=True)
     if st.button("今日の実行 →", use_container_width=True):
         st.switch_page("pages/pipeline.py")
+
+# データ信頼度の注記（サンプル少数時）
+_total_trades = kpi.get("total_trades", 0)
+_days_running = kpi.get("days_running", 0)
+if _total_trades < 20 and _days_running < 30:
+    st.markdown(
+        f'<div style="font-size:0.7rem; color:#94a3b8; text-align:center; '
+        f'padding:0.2rem 0; margin-bottom:0.5rem">'
+        f'データ {_total_trades}件 / {_days_running}日間 '
+        f'— 統計的信頼性が低いため参考値です</div>',
+        unsafe_allow_html=True,
+    )
 
 
 # ============================================================
@@ -570,7 +583,8 @@ ar_ok = ar >= ar_tgt
 ar_pct = min(100, max(0, ar / ar_tgt * 100)) if ar_tgt > 0 and ar > 0 else 0
 ar_gap = ar_tgt - ar
 days_running = kpi.get("days_running", 0)
-ar_note = f"（{days_running}日間データから換算）" if days_running < 30 else ""
+actual_ret = kpi.get("actual_return_pct", 0)
+ar_note = f"（{days_running}日間で{actual_ret:+.2f}%→年率換算）" if days_running < 30 else ""
 kpi_checks.append(
     {
         "label": "年率リターン",

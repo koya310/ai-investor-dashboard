@@ -460,17 +460,26 @@ def get_go_nogo_verdict(kpi: dict) -> dict:
 
 
 def _calc_uptime(conn: sqlite3.Connection, start_date: str) -> float:
-    """system_runsから稼働率を計算（直近7日間のローリングウィンドウ）
+    """system_runsから稼働率を計算。
 
-    Phase 3開始日からの全期間ではなく、直近7日の稼働率を使う。
-    古い障害が長期間スコアを押し下げるのを防止。
+    start_dateからの全期間が7日以下なら全期間、
+    7日以上経過していれば直近7日のローリングウィンドウを使用。
     """
-    runs = pd.read_sql_query(
-        "SELECT status FROM system_runs WHERE started_at >= datetime('now', '-7 days')",
-        conn,
-    )
+    days_elapsed = (datetime.now() - datetime.strptime(start_date, "%Y-%m-%d")).days
+    if days_elapsed <= 7:
+        # 開始直後は全期間
+        runs = pd.read_sql_query(
+            "SELECT status FROM system_runs WHERE started_at >= ?",
+            conn,
+            params=[start_date],
+        )
+    else:
+        # 7日以上経過したら直近7日のローリングウィンドウ
+        runs = pd.read_sql_query(
+            "SELECT status FROM system_runs WHERE started_at >= datetime('now', '-7 days')",
+            conn,
+        )
     if len(runs) == 0:
-        # 直近7日に実行なし → 稼働率0%
         return 0.0
     completed = len(runs[runs["status"] == "completed"])
     return completed / len(runs) * 100
@@ -699,7 +708,8 @@ def get_trade_summary(trades_df: pd.DataFrame) -> dict:
         "losses": len(losers),
         "win_rate": round(len(winners) / len(closed) * 100, 1),
         "profit_factor": (
-            round(total_profit / total_loss, 2) if total_loss > 0 else 99.99
+            round(total_profit / total_loss, 2) if total_loss > 0
+            else (float("inf") if total_profit > 0 else 0.0)
         ),
         "avg_profit_pct": (
             round(winners["profit_loss_pct"].mean(), 2) if len(winners) > 0 else 0.0
