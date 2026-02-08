@@ -161,6 +161,75 @@ def show_analysis_dialog():
 
 
 # ============================================================
+# 0. クイックステータス + Verdict（ページ最上部）
+# ============================================================
+
+# --- Verdict 計算（先に行う）---
+_deadline_dt = datetime.strptime(_dm.GONOGO_DEADLINE, "%Y-%m-%d")
+_days_left = max((_deadline_dt - datetime.now()).days, 0)
+_targets = _dm.KPI_TARGETS
+_v = verdict["status"]
+_passed = verdict["passed"]
+_total = verdict["total"]
+
+# --- クイックステータス 3カード ---
+_wr = kpi["win_rate"]
+_pnl_total = kpi.get("total_pnl", 0)
+_pnl_color = W if _pnl_total >= 0 else L
+_pnl_sign = "+" if _pnl_total >= 0 else ""
+_last_run = d["last_run"]
+_sys_ok = _last_run and _last_run["status"] == "completed"
+_sys_cls = "qs-card-ok" if _sys_ok else "qs-card-ng"
+_sys_label = "正常稼働" if _sys_ok else "異常あり"
+_sys_dot = "status-dot-ok" if _sys_ok else "status-dot-ng"
+_wr_cls = "qs-card-ok" if _wr >= _targets["win_rate"] else ("qs-card-warn" if _wr >= 40 else "qs-card-ng")
+
+st.markdown(
+    f'<div class="qs-row">'
+    f'<div class="qs-card {_sys_cls}">'
+    f'<div class="qs-val"><span class="{_sys_dot} status-dot"></span>{_sys_label}</div>'
+    f'<div class="qs-label">システム状態</div>'
+    f"</div>"
+    f'<div class="qs-card {_wr_cls}">'
+    f'<div class="qs-val">{_wr:.0f}%</div>'
+    f'<div class="qs-label">勝率（目標 {_targets["win_rate"]:.0f}%）</div>'
+    f"</div>"
+    f'<div class="qs-card" style="border-left-color:{_pnl_color}">'
+    f'<div class="qs-val" style="color:{_pnl_color}">{_pnl_sign}${abs(_pnl_total):,.0f}</div>'
+    f'<div class="qs-label">累積損益</div>'
+    f"</div>"
+    f"</div>",
+    unsafe_allow_html=True,
+)
+
+# --- Verdict バナー + Pipeline リンク ---
+if _v == "GO":
+    _vc = "v-go"
+    _vt = f"<b>GO</b> — 全{_total}項目を達成。Phase 4（実取引）へ移行可能です。"
+elif _v == "CONDITIONAL_GO":
+    _vc = "v-cond"
+    _recs = " / ".join(verdict["recommendations"][:2])
+    _vt = (
+        f"<b>条件付き</b> — {_passed}/{_total}項目を達成。"
+        f"<br><span style='font-size:0.78rem'>{_recs}</span>"
+    )
+else:
+    _vc = "v-ng"
+    _vt = f"<b>未達</b> — {_passed}/{_total}項目のみ達成。残り{_days_left}日で改善が必要です。"
+
+_verdict_cols = st.columns([5, 1])
+with _verdict_cols[0]:
+    st.markdown(
+        f'<div class="verdict {_vc}">{_vt}</div>',
+        unsafe_allow_html=True,
+    )
+with _verdict_cols[1]:
+    st.markdown('<div style="height:0.4rem"></div>', unsafe_allow_html=True)
+    if st.button("今日の実行 →", use_container_width=True):
+        st.switch_page("pages/pipeline.py")
+
+
+# ============================================================
 # 1. ポートフォリオ総額 + 保有銘柄
 # ============================================================
 
@@ -616,28 +685,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# 判定バナー
-v = verdict["status"]
-passed = verdict["passed"]
-total = verdict["total"]
-if v == "GO":
-    vc = "v-go"
-    vt = f"<b>GO</b> -- 全{total}項目を達成。Phase 4（実取引）へ移行可能です。"
-elif v == "CONDITIONAL_GO":
-    vc = "v-cond"
-    recs = " / ".join(verdict["recommendations"][:2])
-    vt = (
-        f"<b>条件付き</b> -- {passed}/{total}項目を達成。"
-        f"<br><span style='font-size:0.78rem'>{recs}</span>"
-    )
-else:
-    vc = "v-ng"
-    vt = f"<b>未達</b> -- {passed}/{total}項目のみ達成。残り{days_left}日で改善が必要です。"
-
-st.markdown(
-    f'<div class="verdict {vc}">{vt}</div>',
-    unsafe_allow_html=True,
-)
+# （Verdict はページ上部に移動済み）
 
 # ============================================================
 # 4. 取引履歴

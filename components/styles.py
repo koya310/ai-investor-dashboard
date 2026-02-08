@@ -378,6 +378,149 @@ div[data-testid="stPlotlyChart"] > div {
     .pos-row { flex-direction: column; gap: 0.2rem; }
     .split-row { flex-direction: column; gap: 0.5rem; }
     .tf-flow { flex-direction: column; align-items: flex-start; }
+    .qs-row { flex-direction: column; }
+    .qs-card { min-width: 0; }
+    .funnel-flow { flex-direction: column; gap: 0.3rem; }
+    .funnel-step { min-width: 0; flex: 0 0 auto; }
+    .funnel-arrow { display: none; }
+}
+
+/* ── Quick Status カード ── */
+.qs-row {
+    display: flex; gap: 0.7rem; margin-bottom: 0.8rem;
+}
+.qs-card {
+    flex: 1; background: #fff; border-radius: 12px; padding: 0.7rem 1rem;
+    border-left: 4px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.qs-card-ok { border-left-color: #059669; }
+.qs-card-warn { border-left-color: #d97706; }
+.qs-card-ng { border-left-color: #e11d48; }
+.qs-val {
+    font-size: 1.5rem; font-weight: 800; color: #0f172a;
+    line-height: 1.2;
+}
+.qs-label {
+    font-size: 0.68rem; color: #94a3b8; font-weight: 600;
+    letter-spacing: 0.04em; margin-top: 0.15rem;
+}
+.qs-sub {
+    font-size: 0.68rem; color: #94a3b8; margin-top: 0.1rem;
+}
+
+/* ── Verdict 改善 ── */
+.verdict-row {
+    display: flex; align-items: center; gap: 0.8rem;
+    margin-bottom: 1rem;
+}
+.verdict-row .verdict { flex: 1; margin: 0; }
+.verdict-link {
+    font-size: 0.78rem; color: #2563eb; font-weight: 600;
+    text-decoration: none; white-space: nowrap;
+}
+
+/* ── パンくずバー ── */
+.breadcrumb-bar {
+    display: flex; align-items: center; gap: 0.4rem;
+    font-size: 0.78rem; color: #94a3b8; margin-bottom: 0.5rem;
+    padding: 0.5rem 0;
+}
+.breadcrumb-bar a, .breadcrumb-bar .bc-link {
+    color: #2563eb; font-weight: 600; text-decoration: none;
+    cursor: pointer;
+}
+.breadcrumb-bar .bc-current {
+    color: #0f172a; font-weight: 700;
+}
+.breadcrumb-bar .bc-sep {
+    color: #cbd5e1; margin: 0 0.15rem;
+}
+
+/* ── ファネルフロー ── */
+.funnel-flow {
+    display: flex; align-items: stretch; gap: 0; margin-bottom: 1rem;
+}
+.funnel-step {
+    flex: 1; text-align: center; padding: 0.6rem 0.4rem;
+    background: #f8fafc; border-radius: 8px; position: relative;
+}
+.funnel-step-active { background: #eff6ff; }
+.funnel-icon { font-size: 1.2rem; }
+.funnel-val {
+    font-size: 1.6rem; font-weight: 800; color: #0f172a;
+    line-height: 1.2;
+}
+.funnel-val-zero { color: #cbd5e1; }
+.funnel-label {
+    font-size: 0.65rem; color: #64748b; font-weight: 600;
+    margin-top: 0.1rem;
+}
+.funnel-arrow {
+    display: flex; align-items: center; color: #cbd5e1;
+    font-size: 1.2rem; padding: 0 0.2rem; font-weight: 700;
+}
+
+/* ── ティッカーフロー 2行版 ── */
+.tf-card {
+    border-radius: 10px; padding: 0.6rem 0.8rem; margin-bottom: 0.4rem;
+    background: #fff; border-left: 3px solid #e2e8f0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.tf-card-signal { border-left-color: #2563eb; }
+.tf-card-trade { border-left-color: #059669; }
+.tf-header-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 0.25rem;
+}
+.tf-ticker {
+    font-size: 1rem; font-weight: 800; color: #0f172a;
+}
+.tf-outcome {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    font-size: 0.72rem; font-weight: 700; padding: 0.15rem 0.5rem;
+    border-radius: 6px;
+}
+.tf-outcome-buy { background: #ecfdf5; color: #059669; }
+.tf-outcome-sell { background: #fff1f2; color: #e11d48; }
+.tf-outcome-none { background: #f1f5f9; color: #94a3b8; }
+.tf-flow {
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: 0.15rem; font-size: 0.72rem; color: #64748b;
+}
+.tf-step {
+    display: inline-flex; align-items: center; gap: 0.2rem;
+    background: #f8fafc; padding: 0.15rem 0.45rem; border-radius: 5px;
+    font-size: 0.72rem; white-space: nowrap;
+}
+.tf-arrow { color: #cbd5e1; font-size: 0.7rem; }
+
+/* ── 日付ナビボタン ── */
+.date-nav-section {
+    margin-top: 1rem; padding: 0.8rem 0;
+}
+.date-nav-btn {
+    text-align: center; padding: 0.5rem 0.2rem; border-radius: 8px;
+    cursor: pointer; transition: background 0.15s;
+}
+.date-nav-btn:hover { background: #eff6ff; }
+.date-nav-day {
+    font-size: 0.62rem; color: #94a3b8; font-weight: 600;
+}
+.date-nav-date {
+    font-size: 0.85rem; font-weight: 700; color: #0f172a;
+}
+
+/* ── サイドバー ドットインジケータ ── */
+.status-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-right: 0.3rem; vertical-align: middle;
+}
+.status-dot-ok { background: #059669; }
+.status-dot-ng { background: #e11d48; }
+.status-dot-warn { background: #d97706; }
+.urgency-text {
+    font-size: 0.68rem; font-weight: 600; margin-top: 0.15rem;
 }
 </style>
 """

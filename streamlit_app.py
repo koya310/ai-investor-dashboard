@@ -30,10 +30,17 @@ with st.sidebar:
     days_left = max((deadline - datetime.now()).days, 0)
     cd_color = P if days_left > 14 else ("#d97706" if days_left > 7 else L)
 
+    urgency = ""
+    if days_left <= 7:
+        urgency = f'<div class="urgency-text" style="color:{L}">要注意</div>'
+    elif days_left <= 14:
+        urgency = f'<div class="urgency-text" style="color:#d97706">残りわずか</div>'
+
     st.markdown(
         f"""<div style="padding:0.6rem 0 0.8rem">
             <div class="cd-num" style="color:{cd_color}">{days_left}<span style="font-size:0.9rem; font-weight:600">日</span></div>
             <div class="cd-label">判定まで</div>
+            {urgency}
         </div>""",
         unsafe_allow_html=True,
     )
@@ -48,7 +55,8 @@ with st.sidebar:
         if last_run["status"] == "completed":
             st.markdown(
                 f'<div style="font-size:0.78rem; color:#64748b; margin-top:0.5rem">'
-                f'最終実行 <span class="c-pos" style="font-weight:600">正常</span>'
+                f'<span class="status-dot status-dot-ok"></span>'
+                f'<span class="c-pos" style="font-weight:600">正常稼働</span>'
                 f"<br>{run_time}</div>",
                 unsafe_allow_html=True,
             )
@@ -60,7 +68,8 @@ with st.sidebar:
             )
             st.markdown(
                 f'<div style="font-size:0.78rem; color:#64748b; margin-top:0.5rem">'
-                f'最終実行 <span class="c-neg" style="font-weight:600">異常</span>'
+                f'<span class="status-dot status-dot-ng"></span>'
+                f'<span class="c-neg" style="font-weight:600">異常あり</span>'
                 f"<br>{err}</div>",
                 unsafe_allow_html=True,
             )

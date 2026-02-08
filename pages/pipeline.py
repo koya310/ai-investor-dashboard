@@ -497,21 +497,28 @@ else:
         unsafe_allow_html=True,
     )
 
-# ── 日付クリックで詳細ページへ遷移 ──
+# ── 日付ドリルダウン ──
+
+st.markdown(
+    f'<div class="sec-hdr">'
+    f'<div class="bar" style="background:{P}"></div>'
+    f'<div class="txt">日付ドリルダウン'
+    f'<span class="sub">日付を選んで詳細を確認</span></div>'
+    f"</div>",
+    unsafe_allow_html=True,
+)
 
 log_dates = _dm.get_available_log_dates(30)
 date_options = [_date.fromisoformat(d) for d in log_dates] if log_dates else [_date.today()]
 
-st.markdown("---")
-st.markdown(
-    '<div style="font-size:0.78rem; color:#64748b; margin-bottom:0.5rem">'
-    "日付を選んでパイプライン詳細を確認</div>",
-    unsafe_allow_html=True,
-)
-date_cols = st.columns(min(7, len(date_options)))
-for i, d in enumerate(date_options[:14]):
-    with date_cols[i % 7]:
-        label = f"{d.month}/{d.day}"
-        if st.button(label, key=f"goto_date_{d}", use_container_width=True):
-            st.query_params["date"] = d.isoformat()
-            st.switch_page("pages/date_detail.py")
+# 2行 × 7列 で最大14日分表示
+for row_start in range(0, min(14, len(date_options)), 7):
+    row_dates = date_options[row_start : row_start + 7]
+    cols = st.columns(7)
+    for j, dd in enumerate(row_dates):
+        wd = WEEKDAY_JP[dd.weekday()]
+        with cols[j]:
+            label = f"{dd.month}/{dd.day}({wd})"
+            if st.button(label, key=f"goto_date_{dd}", use_container_width=True):
+                st.query_params["date"] = dd.isoformat()
+                st.switch_page("pages/date_detail.py")

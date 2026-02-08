@@ -36,42 +36,41 @@ except ValueError:
 wd_jp = WEEKDAY_JP[selected_date.weekday()]
 
 # ── パンくずナビ ──
-nav_cols = st.columns([1, 5])
-with nav_cols[0]:
+bc_cols = st.columns([1, 5])
+with bc_cols[0]:
     if st.button("← Pipeline", use_container_width=True):
         st.switch_page("pages/pipeline.py")
+with bc_cols[1]:
+    st.markdown(
+        f'<div class="breadcrumb-bar">'
+        f'<span class="bc-link" style="cursor:default">Pipeline</span>'
+        f'<span class="bc-sep">/</span>'
+        f'<span class="bc-current">{target} ({wd_jp})</span>'
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
 # ── 日付セレクタ ──
-with nav_cols[1]:
-    if log_dates:
-        date_options = [_date.fromisoformat(d) for d in log_dates]
-        idx = 0
-        if selected_date in date_options:
-            idx = date_options.index(selected_date)
-        new_date = st.date_input(
-            "日付",
-            value=date_options[idx],
-            label_visibility="collapsed",
-        )
-        if new_date.isoformat() != target:
-            st.query_params["date"] = new_date.isoformat()
-            st.rerun()
+if log_dates:
+    date_options = [_date.fromisoformat(d) for d in log_dates]
+    idx = 0
+    if selected_date in date_options:
+        idx = date_options.index(selected_date)
+    new_date = st.date_input(
+        "日付を変更",
+        value=date_options[idx],
+        label_visibility="collapsed",
+    )
+    if new_date.isoformat() != target:
+        st.query_params["date"] = new_date.isoformat()
+        st.rerun()
 
 # ── データ読み込み ──
 summary = _dm.get_log_day_summary(target)
 pipeline = _dm.get_pipeline_status(target)
 ticker_flow = _dm.get_date_ticker_flow(target)
 
-# ── ヘッダー ──
-st.markdown(
-    f'<div style="text-align:center; margin-bottom:0.5rem">'
-    f'<div style="font-size:1.4rem; font-weight:800; color:#0f172a">{target}</div>'
-    f'<div style="font-size:0.85rem; color:#94a3b8">{wd_jp}曜日</div>'
-    f"</div>",
-    unsafe_allow_html=True,
-)
-
-# ── サマリーフロー ──
+# ── ファネル型サマリーフロー ──
 steps_data = [
     ("📰", "ニュース", summary["news"]),
     ("🧠", "AI分析", summary["analysis"]),
@@ -79,20 +78,21 @@ steps_data = [
     ("💰", "取引", summary["trades"]),
 ]
 
-flow_html = '<div style="display:flex; align-items:center; justify-content:center; gap:0; padding:0.5rem 0; flex-wrap:wrap">'
+funnel_html = '<div class="funnel-flow">'
 for i, (icon, label, cnt) in enumerate(steps_data):
-    cls = "nu-active" if cnt > 0 else "nu-empty"
-    flow_html += (
-        f'<div class="nu-node {cls}">'
-        f'<div class="nu-icon">{icon}</div>'
-        f'<div class="nu-val">{cnt:,}</div>'
-        f'<div class="nu-label">{label}</div>'
+    v_cls = "" if cnt > 0 else "funnel-val-zero"
+    s_cls = "funnel-step-active" if cnt > 0 else ""
+    funnel_html += (
+        f'<div class="funnel-step {s_cls}">'
+        f'<div class="funnel-icon">{icon}</div>'
+        f'<div class="funnel-val {v_cls}">{cnt:,}</div>'
+        f'<div class="funnel-label">{label}</div>'
         f"</div>"
     )
     if i < len(steps_data) - 1:
-        flow_html += '<div class="nu-arrow">→</div>'
-flow_html += "</div>"
-st.markdown(flow_html, unsafe_allow_html=True)
+        funnel_html += '<div class="funnel-arrow">→</div>'
+funnel_html += "</div>"
+st.markdown(funnel_html, unsafe_allow_html=True)
 
 # ============================================================
 # ★ ティッカー別フロー（核心セクション）
@@ -129,43 +129,51 @@ if ticker_flow:
         dir_label = dir_map.get(a_dir, a_dir)
         dir_color = W if a_dir == "bullish" else (L if a_dir == "bearish" else "#64748b")
 
-        # フロー構築
+        # 結果バッジ（右上）
+        if trd:
+            trd_label = "買い" if trd["action"] == "BUY" else "売り"
+            outcome_cls = "tf-outcome-buy" if trd["action"] == "BUY" else "tf-outcome-sell"
+            pnl_badge = ""
+            if trd["pnl"] is not None and pd.notna(trd["pnl"]):
+                pc = "c-pos" if trd["pnl"] >= 0 else "c-neg"
+                ps = "+" if trd["pnl"] >= 0 else ""
+                pnl_badge = f' <span class="{pc}" style="margin-left:0.3rem">{ps}${trd["pnl"]:,.0f}</span>'
+            outcome_html = (
+                f'<span class="tf-outcome {outcome_cls}">{trd_label} {trd["shares"]}株 @${trd["price"]:.2f}{pnl_badge}</span>'
+            )
+        elif sig:
+            sig_label = "BUY" if sig["type"] == "BUY" else "SELL"
+            outcome_cls = "tf-outcome-buy" if sig["type"] == "BUY" else "tf-outcome-sell"
+            outcome_html = f'<span class="tf-outcome {outcome_cls}">{sig_label} 確信{sig["conviction"]}/10</span>'
+        else:
+            outcome_html = '<span class="tf-outcome tf-outcome-none">データ収集のみ</span>'
+
+        # フローステップ（下段）
         flow_parts = []
         if n_cnt > 0:
             flow_parts.append(f'<span class="tf-step">📰 {n_cnt}件</span>')
         if a_cnt > 0:
             flow_parts.append(
                 f'<span class="tf-step">🧠 {a_cnt}件 '
-                f'<span style="color:{dir_color}; font-weight:600">'
-                f"{a_score:.0f}/{dir_label}</span></span>"
+                f'<span style="color:{dir_color}; font-weight:600">{a_score:.0f}/{dir_label}</span></span>'
             )
         if sig:
-            sig_color = W if sig["type"] == "BUY" else L
-            sig_label = "買い" if sig["type"] == "BUY" else "売り"
             flow_parts.append(
-                f'<span class="tf-step" style="border:1px solid {sig_color}">'
-                f'<span style="color:{sig_color}; font-weight:700">{sig_label}</span> '
-                f'確信{sig["conviction"]}/10'
-                f"</span>"
+                f'<span class="tf-step">⚡ シグナル</span>'
             )
         if trd:
-            trd_label = "買い" if trd["action"] == "BUY" else "売り"
-            pnl_html = ""
-            if trd["pnl"] is not None and pd.notna(trd["pnl"]):
-                pc = "c-pos" if trd["pnl"] >= 0 else "c-neg"
-                ps = "+" if trd["pnl"] >= 0 else ""
-                pnl_html = f' <span class="{pc}">{ps}${trd["pnl"]:,.0f}</span>'
             flow_parts.append(
-                f'<span class="tf-step" style="background:#ecfdf5">'
-                f"💰 {trd_label} {trd['shares']}株 @${trd['price']:.2f}{pnl_html}"
-                f"</span>"
+                f'<span class="tf-step" style="background:#ecfdf5">💰 約定</span>'
             )
 
         flow_content = ' <span class="tf-arrow">→</span> '.join(flow_parts) if flow_parts else '<span style="color:#94a3b8">データなし</span>'
 
         st.markdown(
             f'<div class="{card_cls}">'
-            f'<div class="tf-header">{tk}</div>'
+            f'<div class="tf-header-row">'
+            f'<span class="tf-ticker">{tk}</span>'
+            f'{outcome_html}'
+            f"</div>"
             f'<div class="tf-flow">{flow_content}</div>'
             f"</div>",
             unsafe_allow_html=True,
@@ -192,7 +200,7 @@ st.markdown(
 
 # ── システム実行 ──
 log_runs = _dm.get_log_system_runs(target)
-with st.expander(f"⚙️ システム実行 ({len(log_runs)}件)", expanded=len(log_runs) > 0 and summary["news"] == 0):
+with st.expander(f"⚙️ システム実行 ({len(log_runs)}件)", expanded=False):
     if len(log_runs) > 0:
         for _, run in log_runs.iterrows():
             r_mode = run.get("run_mode", "")
@@ -384,7 +392,7 @@ with st.expander(f"🧠 AI分析 ({analysis_cnt}件)", expanded=False):
 
 # ── シグナル詳細 ──
 sig_cnt = summary["signals"]
-with st.expander(f"⚡ シグナル ({sig_cnt}件)", expanded=sig_cnt > 0):
+with st.expander(f"⚡ シグナル ({sig_cnt}件)", expanded=False):
     today_sigs = _dm.get_log_signals(target)
     if len(today_sigs) > 0:
         sig_html = ""
@@ -496,7 +504,7 @@ with st.expander(f"⚡ シグナル ({sig_cnt}件)", expanded=sig_cnt > 0):
 
 # ── 取引詳細 ──
 trade_cnt = summary["trades"]
-with st.expander(f"💰 取引 ({trade_cnt}件)", expanded=trade_cnt > 0):
+with st.expander(f"💰 取引 ({trade_cnt}件)", expanded=False):
     today_trades = _dm.get_log_trades(target)
     if len(today_trades) > 0:
         trade_html = ""
