@@ -35,35 +35,43 @@ except ValueError:
 
 wd_jp = WEEKDAY_JP[selected_date.weekday()]
 
-# ── パンくずナビ ──
-bc_cols = st.columns([1, 5])
-with bc_cols[0]:
+# ── ナビゲーション: ← Pipeline | ◀前日 | 日付 | 翌日▶ | カレンダー ──
+_date_opts = [_date.fromisoformat(d) for d in log_dates] if log_dates else []
+_cur_idx = _date_opts.index(selected_date) if selected_date in _date_opts else -1
+_has_newer = _cur_idx > 0
+_has_older = _cur_idx >= 0 and _cur_idx < len(_date_opts) - 1
+
+nav_c = st.columns([1, 1, 3, 1, 1])
+with nav_c[0]:
     if st.button("← Pipeline", use_container_width=True):
         st.switch_page("pages/pipeline.py")
-with bc_cols[1]:
+with nav_c[1]:
+    if _has_older:
+        _older = _date_opts[_cur_idx + 1]
+        if st.button(f"◀ {_older.month}/{_older.day}", key="nav_prev", use_container_width=True):
+            st.query_params["date"] = _older.isoformat()
+            st.rerun()
+with nav_c[2]:
     st.markdown(
-        f'<div class="breadcrumb-bar">'
-        f'<span class="bc-link" style="cursor:default">Pipeline</span>'
-        f'<span class="bc-sep">/</span>'
-        f'<span class="bc-current">{target} ({wd_jp})</span>'
+        f'<div style="text-align:center; padding:0.4rem 0">'
+        f'<span style="font-size:1.1rem; font-weight:800; color:#0f172a">{selected_date.month}/{selected_date.day}</span>'
+        f'<span style="font-size:0.85rem; color:#64748b; margin-left:0.3rem">({wd_jp})</span>'
+        f'<span style="font-size:0.72rem; color:#94a3b8; margin-left:0.4rem">{target}</span>'
         f"</div>",
         unsafe_allow_html=True,
     )
-
-# ── 日付セレクタ ──
-if log_dates:
-    date_options = [_date.fromisoformat(d) for d in log_dates]
-    idx = 0
-    if selected_date in date_options:
-        idx = date_options.index(selected_date)
-    new_date = st.date_input(
-        "日付を変更",
-        value=date_options[idx],
-        label_visibility="collapsed",
-    )
-    if new_date.isoformat() != target:
-        st.query_params["date"] = new_date.isoformat()
-        st.rerun()
+with nav_c[3]:
+    if _has_newer:
+        _newer = _date_opts[_cur_idx - 1]
+        if st.button(f"{_newer.month}/{_newer.day} ▶", key="nav_next", use_container_width=True):
+            st.query_params["date"] = _newer.isoformat()
+            st.rerun()
+with nav_c[4]:
+    if log_dates:
+        _new_d = st.date_input("日付", value=selected_date, label_visibility="collapsed", key="dp")
+        if _new_d.isoformat() != target:
+            st.query_params["date"] = _new_d.isoformat()
+            st.rerun()
 
 # ── データ読み込み ──
 summary = _dm.get_log_day_summary(target)

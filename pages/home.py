@@ -258,10 +258,10 @@ if total_val > 0:
         diff = pnl_pct - spy_pnl_pct
         diff_color = W if diff >= 0 else L
         spy_html = (
-            f'<div style="font-size:0.78rem; color:#94a3b8; margin-top:0.3rem">'
+            f'<span style="font-size:0.75rem; color:#94a3b8; margin-left:0.8rem">'
             f"SPY {spy_pnl_pct:+.2f}%"
-            f'<span style="margin:0 0.35rem; color:#e2e8f0">|</span>'
-            f'差 <span style="color:{diff_color}; font-weight:600">{diff:+.2f}%</span></div>'
+            f'<span style="margin:0 0.3rem; color:#e2e8f0">|</span>'
+            f'差 <span style="color:{diff_color}; font-weight:600">{diff:+.2f}%</span></span>'
         )
 
     equity_pct = (equity_val / total_val * 100) if total_val > 0 else 0
@@ -271,94 +271,81 @@ if total_val > 0:
     days_running = kpi.get("days_running", 0)
     total_trades_count = kpi.get("total_trades", 0)
 
-    pos_html = ""
-    if alpaca_positions:
-        pos_items = ""
-        for p in alpaca_positions:
-            p_pnl = p["unrealized_pnl"]
-            p_pct = p["unrealized_pnl_pct"]
-            p_c = "c-pos" if p_pnl >= 0 else "c-neg"
-            p_sign = "+" if p_pnl >= 0 else ""
-            pos_items += (
-                f'<div class="pos-row">'
-                f"<div>"
-                f'<span style="font-weight:700; color:#0f172a; font-size:0.92rem">{p["ticker"]}</span>'
-                f'<span style="color:#94a3b8; margin-left:0.4rem; font-size:0.78rem">'
-                f'{p["shares"]}株 &times; ${p["current_price"]:.2f}</span>'
-                f'<span style="color:#94a3b8; font-size:0.68rem; margin-left:0.25rem">'
-                f'(取得${p["entry_price"]:.2f})</span>'
-                f"</div>"
-                f"<div>"
-                f'<span class="{p_c}" style="font-weight:700; font-size:0.92rem">'
-                f"{p_sign}${p_pnl:,.0f}</span>"
-                f'<span class="{p_c}" style="font-size:0.78rem; margin-left:0.2rem">'
-                f"({p_sign}{p_pct:.1f}%)</span>"
-                f"</div>"
-                f"</div>"
-            )
-        pos_html = (
-            f'<div style="margin-top:1rem; padding:0 0.5rem">'
-            f'<div style="font-size:0.65rem; color:#94a3b8; letter-spacing:0.06em; '
-            f'font-weight:600; margin-bottom:0.2rem; padding-left:0.4rem">保有銘柄</div>'
-            f'<div style="background:#f8fafc; border-radius:10px; padding:0.3rem 0.6rem">'
-            f"{pos_items}</div></div>"
-        )
-    else:
-        pos_html = (
-            '<div style="margin-top:1rem; text-align:center; '
-            'font-size:0.78rem; color:#94a3b8">ポジションなし</div>'
+    # --- コンパクト2カラムレイアウト ---
+    pf_left, pf_right = st.columns([3, 2])
+
+    with pf_left:
+        st.markdown(
+            f'<div class="card" style="padding:1.2rem 1.4rem">'
+            f'<div style="display:flex; align-items:baseline; gap:0.5rem; margin-bottom:0.4rem">'
+            f'<span style="font-size:0.68rem; color:#94a3b8; letter-spacing:0.06em; font-weight:600">ポートフォリオ総額</span>'
+            f'<span class="pill pill-blue" style="font-size:0.58rem; padding:0.08rem 0.35rem">{source_label}</span>'
+            f"</div>"
+            f'<div style="font-size:2.4rem; font-weight:800; color:#0f172a; letter-spacing:-1.5px; line-height:1.1">'
+            f"${total_val:,.0f}</div>"
+            f'<div style="display:flex; align-items:baseline; margin-top:0.3rem">'
+            f'<span style="font-size:1rem; color:{color}; font-weight:700">'
+            f"{sign}${abs(pnl):,.0f}"
+            f'<span style="font-weight:500; font-size:0.85rem">（{sign}{pnl_pct:.2f}%）</span></span>'
+            f"{spy_html}"
+            f"</div>"
+            f'<div style="display:flex; gap:0.6rem; margin-top:0.8rem">'
+            f'<div style="flex:1; background:#eff6ff; border-radius:8px; padding:0.4rem 0.6rem; text-align:center">'
+            f'<div style="font-size:0.95rem; font-weight:700; color:#2563eb">${equity_val:,.0f}</div>'
+            f'<div style="font-size:0.62rem; color:#64748b">株式 {equity_pct:.0f}%</div></div>'
+            f'<div style="flex:1; background:#f1f5f9; border-radius:8px; padding:0.4rem 0.6rem; text-align:center">'
+            f'<div style="font-size:0.95rem; font-weight:700; color:#64748b">${cash_val:,.0f}</div>'
+            f'<div style="font-size:0.62rem; color:#94a3b8">現金 {cash_pct:.0f}%</div></div>'
+            f"</div>"
+            f'<div style="display:flex; gap:1.5rem; margin-top:0.7rem; padding-top:0.6rem; border-top:1px solid #f1f5f9">'
+            f'<div class="mini-stat"><div class="mini-val" style="font-size:0.88rem">${capital:,.0f}</div><div class="mini-label">初期資本</div></div>'
+            f'<div class="mini-stat"><div class="mini-val" style="font-size:0.88rem">{days_running}<span style="font-size:0.65rem; font-weight:500">日</span></div><div class="mini-label">運用期間</div></div>'
+            f'<div class="mini-stat"><div class="mini-val" style="font-size:0.88rem">{total_trades_count}<span style="font-size:0.65rem; font-weight:500">回</span></div><div class="mini-label">決済回数</div></div>'
+            f"</div>"
+            f"</div>",
+            unsafe_allow_html=True,
         )
 
-    st.markdown(
-        f"""<div class="card" style="text-align:center; padding:1.8rem 1.5rem 1.4rem">
-            <div style="font-size:0.68rem; color:#94a3b8; letter-spacing:0.06em;
-                        font-weight:600; margin-bottom:0.5rem">
-                ポートフォリオ総額
-                <span class="pill pill-blue" style="margin-left:0.4rem; font-size:0.6rem;
-                        padding:0.1rem 0.45rem">{source_label}</span>
-            </div>
-            <div style="font-size:3.2rem; font-weight:800; color:#0f172a;
-                        letter-spacing:-2px; line-height:1.1">
-                ${total_val:,.0f}
-            </div>
-            <div style="font-size:1.15rem; color:{color}; font-weight:700; margin-top:0.35rem">
-                {sign}${abs(pnl):,.0f}
-                <span style="font-weight:500; font-size:0.95rem">（{sign}{pnl_pct:.2f}%）</span>
-            </div>
-            {spy_html}
-            <div class="split-row">
-                <div class="split-box" style="background:#eff6ff">
-                    <div class="split-val" style="color:#2563eb">${equity_val:,.0f}</div>
-                    <div class="split-label" style="color:#64748b">株式 {equity_pct:.1f}%</div>
-                </div>
-                <div class="split-box" style="background:#f1f5f9">
-                    <div class="split-val" style="color:#64748b">${cash_val:,.0f}</div>
-                    <div class="split-label" style="color:#94a3b8">現金 {cash_pct:.1f}%</div>
-                </div>
-            </div>
-            {pos_html}
-            <div style="display:flex; justify-content:center; gap:2.5rem;
-                        margin-top:1.1rem; padding-top:1rem;
-                        border-top:1px solid #f1f5f9">
-                <div class="mini-stat">
-                    <div class="mini-val">${capital:,.0f}</div>
-                    <div class="mini-label">初期資本</div>
-                </div>
-                <div class="mini-stat">
-                    <div class="mini-val">{days_running}<span style="font-size:0.75rem; font-weight:500">日</span></div>
-                    <div class="mini-label">運用期間</div>
-                </div>
-                <div class="mini-stat">
-                    <div class="mini-val">{total_trades_count}<span style="font-size:0.75rem; font-weight:500">回</span></div>
-                    <div class="mini-label">決済回数</div>
-                </div>
-            </div>
-        </div>""",
-        unsafe_allow_html=True,
-    )
+    with pf_right:
+        if alpaca_positions:
+            pos_items = ""
+            for p in alpaca_positions:
+                p_pnl = p["unrealized_pnl"]
+                p_pct = p["unrealized_pnl_pct"]
+                p_c = "c-pos" if p_pnl >= 0 else "c-neg"
+                p_sign = "+" if p_pnl >= 0 else ""
+                pos_items += (
+                    f'<div class="pos-row">'
+                    f"<div>"
+                    f'<span style="font-weight:700; color:#0f172a; font-size:0.85rem">{p["ticker"]}</span>'
+                    f'<span style="color:#94a3b8; margin-left:0.3rem; font-size:0.72rem">'
+                    f'{p["shares"]}株</span>'
+                    f"</div>"
+                    f"<div>"
+                    f'<span class="{p_c}" style="font-weight:700; font-size:0.85rem">'
+                    f"{p_sign}${p_pnl:,.0f}</span>"
+                    f'<span class="{p_c}" style="font-size:0.72rem; margin-left:0.15rem">'
+                    f"({p_sign}{p_pct:.1f}%)</span>"
+                    f"</div>"
+                    f"</div>"
+                )
+            st.markdown(
+                f'<div class="card" style="padding:0.8rem 1rem">'
+                f'<div style="font-size:0.65rem; color:#94a3b8; letter-spacing:0.06em; '
+                f'font-weight:600; margin-bottom:0.3rem">保有銘柄</div>'
+                f"{pos_items}"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div class="card" style="padding:1.5rem; text-align:center; '
+                'font-size:0.78rem; color:#94a3b8">ポジションなし</div>',
+                unsafe_allow_html=True,
+            )
 else:
     st.markdown(
-        '<div class="card" style="text-align:center; padding:3rem; color:#94a3b8">'
+        '<div class="card" style="text-align:center; padding:2rem; color:#94a3b8">'
         "まだデータがありません</div>",
         unsafe_allow_html=True,
     )
@@ -700,7 +687,7 @@ st.markdown(
 )
 
 if len(trades) > 0:
-    trades_sorted = trades.sort_values("entry_timestamp", ascending=True)
+    trades_sorted = trades.sort_values("entry_timestamp", ascending=False)
 
     closed_trades = trades_sorted[trades_sorted["status"] == "CLOSED"]
     best_id = None
@@ -709,7 +696,13 @@ if len(trades) > 0:
         best_id = closed_trades.loc[closed_trades["profit_loss"].idxmax(), "id"]
         worst_id = closed_trades.loc[closed_trades["profit_loss"].idxmin(), "id"]
 
-    for _, t in trades_sorted.iterrows():
+    # 直近5件を表示、残りはexpander内
+    _show_limit = 5
+    _trades_list = list(trades_sorted.iterrows())
+    _visible = _trades_list[:_show_limit]
+    _hidden = _trades_list[_show_limit:]
+
+    def _render_trade_card(t, best_id, worst_id):
         ticker = t["ticker"]
         shares = int(t["shares"])
 
@@ -744,21 +737,17 @@ if len(trades) > 0:
                 else ""
             )
             st.markdown(
-                f"""<div class="tr-card {accent}">
-                    <div>
-                        <span style="font-weight:600; color:#0f172a; margin-right:0.4rem">
-                            {ticker}</span>
-                        <span style="color:#94a3b8; font-size:0.78rem">
-                            {shares}株</span>
-                        <span style="color:#cbd5e1; margin:0 0.25rem">&middot;</span>
-                        <span style="color:#94a3b8; font-size:0.78rem">
-                            ${t['entry_price']:.2f} &rarr; ${t['exit_price']:.2f}</span>
-                        <span style="color:#cbd5e1; margin:0 0.25rem">&middot;</span>
-                        <span style="color:#94a3b8; font-size:0.72rem">
-                            {ed} &rarr; {xd}{hd_str}</span>
-                    </div>
-                    <div>{result}</div>
-                </div>""",
+                f'<div class="tr-card {accent}">'
+                f"<div>"
+                f'<span style="font-weight:600; color:#0f172a; margin-right:0.4rem">{ticker}</span>'
+                f'<span style="color:#94a3b8; font-size:0.78rem">{shares}株</span>'
+                f'<span style="color:#cbd5e1; margin:0 0.25rem">&middot;</span>'
+                f'<span style="color:#94a3b8; font-size:0.78rem">${t["entry_price"]:.2f} &rarr; ${t["exit_price"]:.2f}</span>'
+                f'<span style="color:#cbd5e1; margin:0 0.25rem">&middot;</span>'
+                f'<span style="color:#94a3b8; font-size:0.72rem">{ed} &rarr; {xd}{hd_str}</span>'
+                f"</div>"
+                f"<div>{result}</div>"
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
@@ -771,21 +760,19 @@ if len(trades) > 0:
                 else ""
             )
             st.markdown(
-                f"""<div class="tr-card {accent}">
-                    <div>
-                        <span style="font-weight:600; color:#0f172a; margin-right:0.4rem">
-                            {ticker}</span>
-                        <span style="color:#94a3b8; font-size:0.78rem">
-                            {shares}株 @ ${t['entry_price']:.2f}</span>
-                        <span style="color:#cbd5e1; margin:0 0.25rem">&middot;</span>
-                        <span style="color:#94a3b8; font-size:0.72rem">{ed}〜</span>
-                    </div>
-                    <div>{result}</div>
-                </div>""",
+                f'<div class="tr-card {accent}">'
+                f"<div>"
+                f'<span style="font-weight:600; color:#0f172a; margin-right:0.4rem">{ticker}</span>'
+                f'<span style="color:#94a3b8; font-size:0.78rem">{shares}株 @ ${t["entry_price"]:.2f}</span>'
+                f'<span style="color:#cbd5e1; margin:0 0.25rem">&middot;</span>'
+                f'<span style="color:#94a3b8; font-size:0.72rem">{ed}〜</span>'
+                f"</div>"
+                f"<div>{result}</div>"
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
-    # サマリー
+    # サマリー（取引カードの上に表示）
     if len(closed_trades) > 0:
         wins = len(closed_trades[closed_trades["profit_loss"] > 0])
         losses = len(closed_trades) - wins
@@ -797,24 +784,28 @@ if len(trades) > 0:
         a_sign = "+" if avg_pnl >= 0 else ""
 
         st.markdown(
-            f"""<div class="card" style="text-align:center; margin-top:0.5rem;
-                        padding:0.9rem 1rem">
-                <span style="color:#64748b; font-size:0.82rem">
-                    {len(closed_trades)}回決済</span>
-                <span style="color:#e2e8f0; margin:0 0.5rem">|</span>
-                <span class="c-pos" style="font-size:0.82rem; font-weight:600">
-                    {wins}勝</span>
-                <span class="c-neg" style="font-size:0.82rem; font-weight:600;
-                        margin-left:0.2rem">{losses}敗</span>
-                <span style="color:#e2e8f0; margin:0 0.5rem">|</span>
-                <span class="{pc}" style="font-size:1rem; font-weight:700">
-                    {ps}${total_pnl:,.0f}</span>
-                <span style="color:#e2e8f0; margin:0 0.5rem">|</span>
-                <span class="{ac}" style="font-size:0.82rem">
-                    平均 {a_sign}${avg_pnl:,.0f}/回</span>
-            </div>""",
+            f'<div class="card" style="text-align:center; padding:0.7rem 1rem">'
+            f'<span style="color:#64748b; font-size:0.82rem">{len(closed_trades)}回決済</span>'
+            f'<span style="color:#e2e8f0; margin:0 0.5rem">|</span>'
+            f'<span class="c-pos" style="font-size:0.82rem; font-weight:600">{wins}勝</span>'
+            f'<span class="c-neg" style="font-size:0.82rem; font-weight:600; margin-left:0.2rem">{losses}敗</span>'
+            f'<span style="color:#e2e8f0; margin:0 0.5rem">|</span>'
+            f'<span class="{pc}" style="font-size:1rem; font-weight:700">{ps}${total_pnl:,.0f}</span>'
+            f'<span style="color:#e2e8f0; margin:0 0.5rem">|</span>'
+            f'<span class="{ac}" style="font-size:0.82rem">平均 {a_sign}${avg_pnl:,.0f}/回</span>'
+            f"</div>",
             unsafe_allow_html=True,
         )
+
+    # 直近の取引カード（最大5件）
+    for _, t in _visible:
+        _render_trade_card(t, best_id, worst_id)
+
+    # 残りはexpander内
+    if _hidden:
+        with st.expander(f"過去の取引をすべて表示（残り{len(_hidden)}件）", expanded=False):
+            for _, t in _hidden:
+                _render_trade_card(t, best_id, worst_id)
 else:
     st.markdown(
         '<div class="card-sm" style="color:#94a3b8; text-align:center; padding:1.2rem">'

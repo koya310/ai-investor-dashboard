@@ -19,18 +19,6 @@ pipeline = load_pipeline_status()
 timeline_df = load_runs_timeline()
 health = load_health_metrics()
 
-# ── タブ説明 ──
-
-st.markdown(
-    '<div class="wf-intro">'
-    "<b>投資プロセス — 本日の運用状況</b><br>"
-    "このタブでは「今日、システムが何をしたか」をリアルタイムで確認できます。"
-    "5つのステップの進行状況・実行結果・詳細データを表示します。"
-    "各ステップの<b>仕組みや設定値</b>は「システム仕様」タブを参照してください。"
-    "</div>",
-    unsafe_allow_html=True,
-)
-
 # ── 1. 本日の投資プロセス ──
 
 st.markdown(
@@ -148,6 +136,30 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# ── 日付ドリルダウン（プロセスの直後に配置）──
+
+log_dates = _dm.get_available_log_dates(30)
+date_options = [_date.fromisoformat(d) for d in log_dates] if log_dates else [_date.today()]
+
+st.markdown(
+    f'<div style="display:flex; align-items:center; gap:0.5rem; margin-top:1rem; margin-bottom:0.5rem">'
+    f'<div style="width:4px; height:1.2rem; border-radius:2px; background:{P}"></div>'
+    f'<div style="font-size:0.88rem; font-weight:700; color:#0f172a">日付別の詳細を見る</div>'
+    f"</div>",
+    unsafe_allow_html=True,
+)
+
+for row_start in range(0, min(14, len(date_options)), 7):
+    row_dates = date_options[row_start : row_start + 7]
+    cols = st.columns(7)
+    for j, dd in enumerate(row_dates):
+        wd = WEEKDAY_JP[dd.weekday()]
+        with cols[j]:
+            label = f"{dd.month}/{dd.day}({wd})"
+            if st.button(label, key=f"goto_date_{dd}", use_container_width=True):
+                st.query_params["date"] = dd.isoformat()
+                st.switch_page("pages/date_detail.py")
+
 # ── 2. 過去7日間の運用品質 ──
 
 st.markdown(
@@ -200,211 +212,123 @@ for col, (label, val, sub, is_ok) in zip(hcols, h_items):
             unsafe_allow_html=True,
         )
 
-# ── 3. ニュース・分析活用 ──
-
-st.markdown(
-    f'<div class="sec-hdr">'
-    f'<div class="bar" style="background:#8b5cf6"></div>'
-    f'<div class="txt">ニュース・分析活用'
-    f'<span class="sub">直近14日</span></div>'
-    f"</div>",
-    unsafe_allow_html=True,
-)
-
-# データ読み込み
-news_trend = _dm.get_news_collection_trend(14)
-news_sources = _dm.get_news_source_breakdown(14)
-news_tickers = _dm.get_news_ticker_coverage(14)
-analysis_trend = _dm.get_analysis_trend(14)
-theme_scores = _dm.get_analysis_theme_scores(7)
-ns_conn = _dm.get_news_signal_connection(14)
-
-# 3a: フロー概要（ニュース→分析→シグナル）
-total_news = int(news_trend["article_count"].sum()) if len(news_trend) > 0 else 0
-total_analysis = int(analysis_trend["total"].sum()) if len(analysis_trend) > 0 else 0
-total_signals = ns_conn["total_signals"]
-news_influenced = ns_conn["news_influenced_signals"]
-flow_df = ns_conn["flow_df"]
-
+# ── 3. ニュース・分析活用（expander内） ──
 
 def _nu_cls(v):
     return "nu-active" if v > 0 else "nu-empty"
 
 
-st.markdown(
-    f'<div class="card">'
-    f'<div style="font-size:0.72rem; color:#64748b; font-weight:600; margin-bottom:0.4rem">データフロー（14日間合計）</div>'
-    f'<div class="nu-flow">'
-    f'  <div class="nu-node {_nu_cls(total_news)}"><div class="nu-icon">📰</div><div class="nu-val">{total_news:,}</div><div class="nu-label">ニュース収集</div></div>'
-    f'  <div class="nu-arrow">→</div>'
-    f'  <div class="nu-node {_nu_cls(total_analysis)}"><div class="nu-icon">🧠</div><div class="nu-val">{total_analysis}</div><div class="nu-label">AI分析</div></div>'
-    f'  <div class="nu-arrow">→</div>'
-    f'  <div class="nu-node {_nu_cls(total_signals)}"><div class="nu-icon">🎯</div><div class="nu-val">{total_signals}</div><div class="nu-label">シグナル</div></div>'
-    f'  <div class="nu-arrow">→</div>'
-    f'  <div class="nu-node {_nu_cls(news_influenced)}"><div class="nu-icon">📊</div><div class="nu-val">{news_influenced}</div><div class="nu-label">ニュース活用</div></div>'
-    f"</div>"
-    f"</div>",
-    unsafe_allow_html=True,
-)
+with st.expander("ニュース・分析活用（直近14日）", expanded=False):
+    news_trend = _dm.get_news_collection_trend(14)
+    news_sources = _dm.get_news_source_breakdown(14)
+    news_tickers = _dm.get_news_ticker_coverage(14)
+    analysis_trend = _dm.get_analysis_trend(14)
+    theme_scores = _dm.get_analysis_theme_scores(7)
+    ns_conn = _dm.get_news_signal_connection(14)
 
-# 3b: 日別フローチャート（Plotly）
-if len(flow_df) > 0:
-    fig_flow = go.Figure()
-    fig_flow.add_trace(
-        go.Bar(
-            x=flow_df["date"],
-            y=flow_df["news"],
-            name="ニュース",
-            marker_color="#8b5cf6",
-            opacity=0.7,
-        )
-    )
-    fig_flow.add_trace(
-        go.Bar(
-            x=flow_df["date"],
-            y=flow_df["analysis"],
-            name="AI分析",
-            marker_color="#2563eb",
-            opacity=0.7,
-        )
-    )
-    fig_flow.add_trace(
-        go.Scatter(
-            x=flow_df["date"],
-            y=flow_df["signals"],
-            name="シグナル",
-            mode="lines+markers",
-            line=dict(color="#059669", width=2),
-            marker=dict(size=6),
-        )
-    )
-    fig_flow.update_layout(
-        height=220,
-        margin=dict(l=0, r=0, t=25, b=0),
-        legend=dict(
-            orientation="h",
-            yanchor="top",
-            y=1.15,
-            xanchor="center",
-            x=0.5,
-            font_size=11,
-        ),
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        xaxis=dict(showgrid=False, tickfont_size=10),
-        yaxis=dict(showgrid=True, gridcolor="#f1f5f9", tickfont_size=10),
-        barmode="group",
-        bargap=0.3,
-    )
-    st.plotly_chart(fig_flow, use_container_width=True)
+    total_news = int(news_trend["article_count"].sum()) if len(news_trend) > 0 else 0
+    total_analysis = int(analysis_trend["total"].sum()) if len(analysis_trend) > 0 else 0
+    total_signals = ns_conn["total_signals"]
+    news_influenced = ns_conn["news_influenced_signals"]
+    flow_df = ns_conn["flow_df"]
 
-# 3c: 詳細（2カラム: ニュースソース / AI分析テーマ）
-nu_col1, nu_col2 = st.columns(2)
-
-with nu_col1:
     st.markdown(
-        '<div class="card-sm">'
-        '<div style="font-size:0.72rem; font-weight:600; color:#64748b; margin-bottom:0.4rem">ニュースソース TOP</div>',
+        f'<div style="font-size:0.72rem; color:#64748b; font-weight:600; margin-bottom:0.4rem">データフロー（14日間合計）</div>'
+        f'<div class="nu-flow">'
+        f'<div class="nu-node {_nu_cls(total_news)}"><div class="nu-icon">📰</div><div class="nu-val">{total_news:,}</div><div class="nu-label">ニュース収集</div></div>'
+        f'<div class="nu-arrow">→</div>'
+        f'<div class="nu-node {_nu_cls(total_analysis)}"><div class="nu-icon">🧠</div><div class="nu-val">{total_analysis}</div><div class="nu-label">AI分析</div></div>'
+        f'<div class="nu-arrow">→</div>'
+        f'<div class="nu-node {_nu_cls(total_signals)}"><div class="nu-icon">🎯</div><div class="nu-val">{total_signals}</div><div class="nu-label">シグナル</div></div>'
+        f'<div class="nu-arrow">→</div>'
+        f'<div class="nu-node {_nu_cls(news_influenced)}"><div class="nu-icon">📊</div><div class="nu-val">{news_influenced}</div><div class="nu-label">ニュース活用</div></div>'
+        f"</div>",
         unsafe_allow_html=True,
     )
-    if len(news_sources) > 0:
-        max_cnt = int(news_sources["cnt"].max())
-        src_html = ""
-        for _, row in news_sources.head(7).iterrows():
-            pct = int(row["cnt"]) / max_cnt * 100 if max_cnt > 0 else 0
-            src_html += (
-                f'<div class="nu-src-bar">'
-                f'<div class="nu-src-name">{row["source"]}</div>'
-                f'<div style="flex:1"><div class="nu-src-fill" style="width:{pct:.0f}%"></div></div>'
-                f'<div class="nu-src-cnt">{int(row["cnt"]):,}</div>'
-                f"</div>"
-            )
-        st.markdown(src_html + "</div>", unsafe_allow_html=True)
-    else:
-        st.markdown(
-            '<div style="color:#94a3b8; font-size:0.78rem; padding:0.5rem 0">データなし</div></div>',
-            unsafe_allow_html=True,
-        )
 
-    # ティッカー紐付け
-    if len(news_tickers) > 0:
-        st.markdown(
-            '<div class="card-sm">'
-            '<div style="font-size:0.72rem; font-weight:600; color:#64748b; margin-bottom:0.3rem">関連銘柄（記事数）</div>',
-            unsafe_allow_html=True,
+    if len(flow_df) > 0:
+        fig_flow = go.Figure()
+        fig_flow.add_trace(go.Bar(x=flow_df["date"], y=flow_df["news"], name="ニュース", marker_color="#8b5cf6", opacity=0.7))
+        fig_flow.add_trace(go.Bar(x=flow_df["date"], y=flow_df["analysis"], name="AI分析", marker_color="#2563eb", opacity=0.7))
+        fig_flow.add_trace(go.Scatter(x=flow_df["date"], y=flow_df["signals"], name="シグナル", mode="lines+markers", line=dict(color="#059669", width=2), marker=dict(size=6)))
+        fig_flow.update_layout(
+            height=200, margin=dict(l=0, r=0, t=25, b=0),
+            legend=dict(orientation="h", yanchor="top", y=1.15, xanchor="center", x=0.5, font_size=11),
+            plot_bgcolor="white", paper_bgcolor="white",
+            xaxis=dict(showgrid=False, tickfont_size=10),
+            yaxis=dict(showgrid=True, gridcolor="#f1f5f9", tickfont_size=10),
+            barmode="group", bargap=0.3,
         )
-        tk_pills = ""
-        for _, row in news_tickers.head(12).iterrows():
-            tk_pills += (
-                f'<span class="nu-theme-card">'
-                f'<span style="color:{P}; font-weight:600">{row["ticker"]}</span>'
-                f'<span class="nu-score" style="color:#64748b">{int(row["article_count"])}</span>'
-                f"</span>"
-            )
-        st.markdown(tk_pills + "</div>", unsafe_allow_html=True)
+        st.plotly_chart(fig_flow, use_container_width=True)
 
-with nu_col2:
-    st.markdown(
-        '<div class="card-sm">'
-        '<div style="font-size:0.72rem; font-weight:600; color:#64748b; margin-bottom:0.4rem">AI分析テーマ（最新スコア）</div>',
-        unsafe_allow_html=True,
-    )
-    if len(theme_scores) > 0:
-        themes_html = ""
-        for _, t in theme_scores.iterrows():
-            score = t.get("score", 0) or 0
-            direction = t.get("direction", "") or ""
-            dir_label = {"bullish": "強気", "bearish": "弱気", "neutral": "中立"}.get(
-                direction, direction
-            )
-            dir_color = (
-                W if direction == "bullish" else (L if direction == "bearish" else "#64748b")
-            )
-            rec = t.get("recommendation", "") or ""
-            themes_html += (
-                f'<div class="nu-theme-card">'
-                f'<span>{t["theme"]}</span>'
-                f'<span class="nu-score" style="color:{dir_color}">{score:.0f}</span>'
-                f'<span style="font-size:0.6rem; color:{dir_color}">{dir_label}</span>'
-                f"</div>"
-            )
-        st.markdown(themes_html + "</div>", unsafe_allow_html=True)
-    else:
-        st.markdown(
-            '<div style="color:#94a3b8; font-size:0.78rem; padding:0.5rem 0">データなし</div></div>',
-            unsafe_allow_html=True,
-        )
+    nu_col1, nu_col2 = st.columns(2)
+    with nu_col1:
+        if len(news_sources) > 0:
+            max_cnt = int(news_sources["cnt"].max())
+            src_html = '<div style="font-size:0.72rem; font-weight:600; color:#64748b; margin-bottom:0.3rem">ニュースソース TOP</div>'
+            for _, row in news_sources.head(7).iterrows():
+                pct = int(row["cnt"]) / max_cnt * 100 if max_cnt > 0 else 0
+                src_html += (
+                    f'<div class="nu-src-bar">'
+                    f'<div class="nu-src-name">{row["source"]}</div>'
+                    f'<div style="flex:1"><div class="nu-src-fill" style="width:{pct:.0f}%"></div></div>'
+                    f'<div class="nu-src-cnt">{int(row["cnt"]):,}</div>'
+                    f"</div>"
+                )
+            st.markdown(src_html, unsafe_allow_html=True)
 
-    # 分析トレンド: 方向性分布
-    if len(analysis_trend) > 0:
-        total_b = int(analysis_trend["bullish"].sum())
-        total_bear = int(analysis_trend["bearish"].sum())
-        total_n = int(analysis_trend["neutral"].sum())
-        total_all = total_b + total_bear + total_n
-        if total_all > 0:
-            b_pct = total_b / total_all * 100
-            bear_pct = total_bear / total_all * 100
-            n_pct = total_n / total_all * 100
-            avg_score = analysis_trend["avg_score"].mean()
-            st.markdown(
-                f'<div class="card-sm">'
-                f'<div style="font-size:0.72rem; font-weight:600; color:#64748b; margin-bottom:0.3rem">分析方向性の分布</div>'
-                f'<div style="display:flex; height:10px; border-radius:5px; overflow:hidden; margin-bottom:0.3rem">'
-                f'<div style="width:{b_pct:.0f}%; background:{W}"></div>'
-                f'<div style="width:{n_pct:.0f}%; background:#94a3b8"></div>'
-                f'<div style="width:{bear_pct:.0f}%; background:{L}"></div>'
-                f"</div>"
-                f'<div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#64748b">'
-                f'<span style="color:{W}">強気 {total_b}件 ({b_pct:.0f}%)</span>'
-                f"<span>中立 {total_n}件</span>"
-                f'<span style="color:{L}">弱気 {total_bear}件 ({bear_pct:.0f}%)</span>'
-                f"</div>"
-                f'<div style="text-align:center; margin-top:0.3rem; font-size:0.72rem; color:#64748b">'
-                f'平均スコア: <span style="font-weight:700; color:#0f172a">{avg_score:.0f}</span> / 100'
-                f"</div>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
+        if len(news_tickers) > 0:
+            tk_html = '<div style="font-size:0.72rem; font-weight:600; color:#64748b; margin:0.5rem 0 0.3rem">関連銘柄</div>'
+            for _, row in news_tickers.head(12).iterrows():
+                tk_html += (
+                    f'<span class="nu-theme-card">'
+                    f'<span style="color:{P}; font-weight:600">{row["ticker"]}</span>'
+                    f'<span class="nu-score" style="color:#64748b">{int(row["article_count"])}</span>'
+                    f"</span>"
+                )
+            st.markdown(tk_html, unsafe_allow_html=True)
+
+    with nu_col2:
+        if len(theme_scores) > 0:
+            themes_html = '<div style="font-size:0.72rem; font-weight:600; color:#64748b; margin-bottom:0.3rem">AI分析テーマ</div>'
+            for _, t in theme_scores.iterrows():
+                score = t.get("score", 0) or 0
+                direction = t.get("direction", "") or ""
+                dir_label = {"bullish": "強気", "bearish": "弱気", "neutral": "中立"}.get(direction, direction)
+                dir_color = W if direction == "bullish" else (L if direction == "bearish" else "#64748b")
+                themes_html += (
+                    f'<span class="nu-theme-card">'
+                    f'<span>{t["theme"]}</span>'
+                    f'<span class="nu-score" style="color:{dir_color}">{score:.0f}</span>'
+                    f'<span style="font-size:0.6rem; color:{dir_color}">{dir_label}</span>'
+                    f"</span>"
+                )
+            st.markdown(themes_html, unsafe_allow_html=True)
+
+        if len(analysis_trend) > 0:
+            total_b = int(analysis_trend["bullish"].sum())
+            total_bear = int(analysis_trend["bearish"].sum())
+            total_n = int(analysis_trend["neutral"].sum())
+            total_all = total_b + total_bear + total_n
+            if total_all > 0:
+                b_pct = total_b / total_all * 100
+                bear_pct = total_bear / total_all * 100
+                n_pct = total_n / total_all * 100
+                avg_score = analysis_trend["avg_score"].mean()
+                st.markdown(
+                    f'<div style="margin-top:0.5rem; font-size:0.72rem; font-weight:600; color:#64748b; margin-bottom:0.3rem">方向性分布</div>'
+                    f'<div style="display:flex; height:10px; border-radius:5px; overflow:hidden; margin-bottom:0.3rem">'
+                    f'<div style="width:{b_pct:.0f}%; background:{W}"></div>'
+                    f'<div style="width:{n_pct:.0f}%; background:#94a3b8"></div>'
+                    f'<div style="width:{bear_pct:.0f}%; background:{L}"></div>'
+                    f"</div>"
+                    f'<div style="display:flex; justify-content:space-between; font-size:0.68rem; color:#64748b">'
+                    f'<span style="color:{W}">強気 {total_b}</span>'
+                    f"<span>中立 {total_n}</span>"
+                    f'<span style="color:{L}">弱気 {total_bear}</span>'
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
 
 # ── 4. 日次運用カレンダー（直近14日） ──
 
@@ -497,28 +421,4 @@ else:
         unsafe_allow_html=True,
     )
 
-# ── 日付ドリルダウン ──
-
-st.markdown(
-    f'<div class="sec-hdr">'
-    f'<div class="bar" style="background:{P}"></div>'
-    f'<div class="txt">日付ドリルダウン'
-    f'<span class="sub">日付を選んで詳細を確認</span></div>'
-    f"</div>",
-    unsafe_allow_html=True,
-)
-
-log_dates = _dm.get_available_log_dates(30)
-date_options = [_date.fromisoformat(d) for d in log_dates] if log_dates else [_date.today()]
-
-# 2行 × 7列 で最大14日分表示
-for row_start in range(0, min(14, len(date_options)), 7):
-    row_dates = date_options[row_start : row_start + 7]
-    cols = st.columns(7)
-    for j, dd in enumerate(row_dates):
-        wd = WEEKDAY_JP[dd.weekday()]
-        with cols[j]:
-            label = f"{dd.month}/{dd.day}({wd})"
-            if st.button(label, key=f"goto_date_{dd}", use_container_width=True):
-                st.query_params["date"] = dd.isoformat()
-                st.switch_page("pages/date_detail.py")
+# （日付ドリルダウンはページ上部に移動済み）
