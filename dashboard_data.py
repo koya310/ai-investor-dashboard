@@ -957,7 +957,12 @@ def get_system_health_summary(runs_df: pd.DataFrame) -> dict:
 
 def get_todays_pipeline_status() -> dict:
     """今日のパイプライン各ステップの状態を返す。"""
-    today = datetime.now().strftime("%Y-%m-%d")
+    return get_pipeline_status(datetime.now().strftime("%Y-%m-%d"))
+
+
+def get_pipeline_status(target_date: str) -> dict:
+    """指定日のパイプライン各ステップの状態を返す。"""
+    today = target_date
     with _connect() as conn:
         cur = conn.cursor()
 
@@ -1587,3 +1592,155 @@ def get_log_day_summary(target_date: str) -> dict:
             "trades": trade_cnt,
             "runs": run_cnt,
         }
+
+
+# ============================================================
+# ティッカー別パイプライントレース
+# ============================================================
+
+
+def get_date_ticker_flow(target_date: str) -> list[dict]:
+    """指定日のティッカー別 ニュース→分析→シグナル→取引 フローを構築。"""
+    import json
+
+    with _connect() as conn:
+        # 1. ニュース: tickers_json を展開してティッカー別に集計
+        news_rows = conn.execute(
+            "SELECT tickers_json, source FROM news WHERE date(created_at) = ?",
+            (target_date,),
+        ).fetchall()
+
+        ticker_news: dict[str, dict] = {}
+        for row in news_rows:
+            tj = row["tickers_json"] if isinstance(row, dict) else row[0]
+            src = row["source"] if isinstance(row, dict) else row[1]
+            if not tj:
+                continue
+            try:
+                tickers = json.loads(tj)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            for t in tickers:
+                if t not in ticker_news:
+                    ticker_news[t] = {"count": 0, "sources": set()}
+                ticker_news[t]["count"] += 1
+                if src:
+                    ticker_news[t]["sources"].add(src)
+
+        # 2. AI分析: ticker別にスコア・方向を集計
+        analysis_rows = pd.read_sql_query(
+            "SELECT ticker, score, direction, analysis_type "
+            "FROM ai_analysis WHERE date(analyzed_at) = ? AND ticker IS NOT NULL",
+            conn,
+            params=(target_date,),
+        )
+
+        ticker_analysis: dict[str, dict] = {}
+        for ticker, grp in analysis_rows.groupby("ticker"):
+            ticker_analysis[str(ticker)] = {
+                "count": len(grp),
+                "avg_score": grp["score"].mean() if grp["score"].notna().any() else 0,
+                "direction": grp["direction"].iloc[-1] if len(grp) > 0 else "",
+            }
+
+        # 3. シグナル: ticker別
+        signal_rows = pd.read_sql_query(
+            "SELECT ticker, signal_type, conviction, confidence, status "
+            "FROM signals WHERE date(detected_at) = ?",
+            conn,
+            params=(target_date,),
+        )
+
+        ticker_signals: dict[str, dict] = {}
+        for _, s in signal_rows.iterrows():
+            tk = s["ticker"]
+            ticker_signals[tk] = {
+                "type": s["signal_type"],
+                "conviction": s.get("conviction") or 0,
+                "confidence": s.get("confidence") or 0,
+                "status": s.get("status", ""),
+            }
+
+        # 4. 取引: ticker別
+        trade_rows = pd.read_sql_query(
+            "SELECT ticker, action, entry_price, shares, profit_loss, status "
+            "FROM trades WHERE date(entry_timestamp) = ? OR date(exit_timestamp) = ?",
+            conn,
+            params=(target_date, target_date),
+        )
+
+        ticker_trades: dict[str, dict] = {}
+        for _, t in trade_rows.iterrows():
+            tk = t["ticker"]
+            ticker_trades[tk] = {
+                "action": t["action"],
+                "price": t["entry_price"],
+                "shares": int(t["shares"]),
+                "pnl": t.get("profit_loss"),
+                "status": t.get("status", ""),
+            }
+
+        # 5. 全ティッカーをマージ
+        all_tickers = set()
+        all_tickers.update(ticker_news.keys())
+        all_tickers.update(ticker_analysis.keys())
+        all_tickers.update(ticker_signals.keys())
+        all_tickers.update(ticker_trades.keys())
+
+        result = []
+        for tk in sorted(all_tickers):
+            news_info = ticker_news.get(tk, {"count": 0, "sources": set()})
+            ana_info = ticker_analysis.get(tk, {"count": 0, "avg_score": 0, "direction": ""})
+            sig_info = ticker_signals.get(tk)
+            trd_info = ticker_trades.get(tk)
+
+            result.append(
+                {
+                    "ticker": tk,
+                    "news_count": news_info["count"],
+                    "news_sources": sorted(news_info.get("sources", set())),
+                    "analysis_count": ana_info["count"],
+                    "analysis_avg_score": ana_info["avg_score"],
+                    "analysis_direction": ana_info["direction"],
+                    "signal": sig_info,
+                    "trade": trd_info,
+                }
+            )
+
+        # ソート: 取引あり > シグナルあり > ニュース件数多い順
+        result.sort(
+            key=lambda x: (
+                x["trade"] is not None,
+                x["signal"] is not None,
+                x["news_count"],
+            ),
+            reverse=True,
+        )
+
+        return result
+
+
+def get_date_ticker_news(target_date: str, ticker: str, limit: int = 50) -> pd.DataFrame:
+    """指定日の特定ティッカーに関連するニュースを返す。"""
+    with _connect() as conn:
+        return pd.read_sql_query(
+            "SELECT title, source, content, theme, tickers_json, sentiment_score, "
+            "quality_score, url, created_at "
+            "FROM news WHERE date(created_at) = ? AND tickers_json LIKE ? "
+            "ORDER BY created_at DESC LIMIT ?",
+            conn,
+            params=(target_date, f"%{ticker}%", limit),
+        )
+
+
+def get_date_ticker_analyses(target_date: str, ticker: str) -> pd.DataFrame:
+    """指定日の特定ティッカーのAI分析を返す。"""
+    with _connect() as conn:
+        return pd.read_sql_query(
+            "SELECT theme, ticker, analysis_type, score, direction, summary, "
+            "detailed_analysis, key_points_json, recommendation, model_used, analyzed_at "
+            "FROM ai_analysis WHERE date(analyzed_at) = ? AND ticker = ? "
+            "ORDER BY analyzed_at DESC",
+            conn,
+            params=(target_date, ticker),
+        )
