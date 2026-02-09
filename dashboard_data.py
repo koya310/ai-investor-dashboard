@@ -912,17 +912,17 @@ def get_signal_tracking() -> pd.DataFrame:
 
 def get_system_runs(days: int = 30) -> pd.DataFrame:
     """直近N日のシステム実行履歴"""
+    days = int(days)
     with _connect() as conn:
         df = pd.read_sql_query(
-            f"""
-            SELECT run_id, run_mode, environment, started_at, ended_at,
-                   status, signals_detected, trades_executed,
-                   news_collected, errors_count, error_message, host_name
-            FROM system_runs
-            WHERE started_at >= datetime('now', '-{days} days')
-            ORDER BY started_at DESC
-            """,
+            "SELECT run_id, run_mode, environment, started_at, ended_at, "
+            "       status, signals_detected, trades_executed, "
+            "       news_collected, errors_count, error_message, host_name "
+            "FROM system_runs "
+            "WHERE started_at >= datetime('now', ?) "
+            "ORDER BY started_at DESC",
             conn,
+            params=[f"-{days} days"],
         )
         if len(df) > 0:
             df["started_at"] = pd.to_datetime(df["started_at"], format="ISO8601")
@@ -1140,7 +1140,6 @@ def get_pipeline_health_metrics(days: int = 7) -> dict:
         cur = conn.cursor()
         offset = f"-{days} days"
 
-        # news
         cur.execute(
             "SELECT COUNT(*) as cnt, COUNT(DISTINCT date(created_at)) as days "
             "FROM news WHERE created_at >= datetime('now', ?)",
@@ -1148,7 +1147,6 @@ def get_pipeline_health_metrics(days: int = 7) -> dict:
         )
         news = dict(cur.fetchone())
 
-        # ai_analysis
         cur.execute(
             "SELECT COUNT(*) as cnt, COUNT(DISTINCT date(analyzed_at)) as days "
             "FROM ai_analysis WHERE analyzed_at >= datetime('now', ?)",
@@ -1156,7 +1154,6 @@ def get_pipeline_health_metrics(days: int = 7) -> dict:
         )
         analysis = dict(cur.fetchone())
 
-        # signals
         cur.execute(
             "SELECT COUNT(*) as cnt, COUNT(DISTINCT date(detected_at)) as days "
             "FROM signals WHERE detected_at >= datetime('now', ?)",
@@ -1164,7 +1161,6 @@ def get_pipeline_health_metrics(days: int = 7) -> dict:
         )
         sigs = dict(cur.fetchone())
 
-        # trades
         cur.execute(
             "SELECT COUNT(*) as cnt, COUNT(DISTINCT date(entry_timestamp)) as days "
             "FROM trades WHERE entry_timestamp >= datetime('now', ?)",
@@ -1172,7 +1168,6 @@ def get_pipeline_health_metrics(days: int = 7) -> dict:
         )
         trd = dict(cur.fetchone())
 
-        # system_runs
         cur.execute(
             "SELECT COUNT(*) as total, "
             "SUM(errors_count) as errors, "
@@ -1400,7 +1395,6 @@ def get_analysis_theme_scores(days: int = 7) -> pd.DataFrame:
 def get_news_signal_connection(days: int = 14) -> dict:
     """ニュース→分析→シグナルの接続状況を集計。"""
     with _connect() as conn:
-        # 日別: ニュース件数、分析件数、シグナル件数
         flow = pd.read_sql_query(
             """
             SELECT d.dt as date,
@@ -1438,7 +1432,6 @@ def get_news_signal_connection(days: int = 14) -> dict:
             params=(f"-{days}",) * 6,
         )
 
-        # シグナルのdecision_factorsにnews_scoreがあるか
         sig_with_news = pd.read_sql_query(
             """
             SELECT ticker, signal_type, conviction, decision_factors_json, detected_at
@@ -1627,7 +1620,6 @@ def get_date_ticker_flow(target_date: str) -> list[dict]:
     import json
 
     with _connect() as conn:
-        # 1. ニュース: tickers_json を展開してティッカー別に集計
         news_rows = conn.execute(
             "SELECT tickers_json, source FROM news WHERE date(created_at) = ?",
             (target_date,),
@@ -1650,7 +1642,6 @@ def get_date_ticker_flow(target_date: str) -> list[dict]:
                 if src:
                     ticker_news[t]["sources"].add(src)
 
-        # 2. AI分析: ticker別にスコア・方向を集計
         analysis_rows = pd.read_sql_query(
             "SELECT ticker, score, direction, analysis_type "
             "FROM ai_analysis WHERE date(analyzed_at) = ? AND ticker IS NOT NULL",
@@ -1666,7 +1657,6 @@ def get_date_ticker_flow(target_date: str) -> list[dict]:
                 "direction": grp["direction"].iloc[-1] if len(grp) > 0 else "",
             }
 
-        # 3. シグナル: ticker別
         signal_rows = pd.read_sql_query(
             "SELECT ticker, signal_type, conviction, confidence, status "
             "FROM signals WHERE date(detected_at) = ?",
@@ -1684,7 +1674,6 @@ def get_date_ticker_flow(target_date: str) -> list[dict]:
                 "status": s.get("status", ""),
             }
 
-        # 4. 取引: ticker別
         trade_rows = pd.read_sql_query(
             "SELECT ticker, action, entry_price, shares, profit_loss, status "
             "FROM trades WHERE date(entry_timestamp) = ? OR date(exit_timestamp) = ?",
@@ -1703,7 +1692,6 @@ def get_date_ticker_flow(target_date: str) -> list[dict]:
                 "status": t.get("status", ""),
             }
 
-        # 5. 全ティッカーをマージ
         all_tickers = set()
         all_tickers.update(ticker_news.keys())
         all_tickers.update(ticker_analysis.keys())
@@ -1730,7 +1718,6 @@ def get_date_ticker_flow(target_date: str) -> list[dict]:
                 }
             )
 
-        # ソート: 取引あり > シグナルあり > ニュース件数多い順
         result.sort(
             key=lambda x: (
                 x["trade"] is not None,

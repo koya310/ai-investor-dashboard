@@ -27,6 +27,76 @@ MODE_LABELS = {
 }
 
 
+# ── フォーマットヘルパー ──
+
+
+def fmt_currency(val: float, show_sign: bool = False) -> str:
+    """通貨フォーマット: $1,234 or +$1,234"""
+    if show_sign:
+        sign = "+" if val >= 0 else ""
+        return f"{sign}${abs(val):,.0f}"
+    return f"${val:,.0f}"
+
+
+def fmt_pct(val: float, show_sign: bool = False, decimals: int = 1) -> str:
+    """パーセントフォーマット: 12.3% or +12.3%"""
+    if show_sign:
+        sign = "+" if val >= 0 else ""
+        return f"{sign}{val:.{decimals}f}%"
+    return f"{val:.{decimals}f}%"
+
+
+def fmt_delta(val: float, is_pct: bool = False) -> str:
+    """st.metric用のdelta文字列"""
+    if is_pct:
+        return fmt_pct(val, show_sign=True)
+    return fmt_currency(val, show_sign=True)
+
+
+def color_for_value(val: float) -> str:
+    """正負で色を返す"""
+    return W if val >= 0 else L
+
+
+def color_for_status(status: str) -> str:
+    """ステータス文字列から色を返す"""
+    status_colors = {
+        "completed": W,
+        "running": "#f59e0b",
+        "failed": L,
+        "ok": W,
+        "warn": "#f59e0b",
+        "ng": L,
+    }
+    return status_colors.get(status, "#94a3b8")
+
+
+def section_header(title: str, color: str = P, subtitle: str = "") -> None:
+    """セクション見出し（Tier 2: ネイティブ + 最小CSS）"""
+    sub = f"  —  {subtitle}" if subtitle else ""
+    st.markdown(
+        f'<div style="display:flex;align-items:center;gap:0.5rem;'
+        f'margin:1.2rem 0 0.5rem">'
+        f'<div style="width:4px;height:1.4rem;border-radius:2px;'
+        f'background:{color}"></div>'
+        f'<span style="font-size:0.92rem;font-weight:700;color:#0f172a">'
+        f"{title}</span>"
+        f'<span style="font-size:0.72rem;color:#94a3b8">{sub}</span>'
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_pill(label: str, color: str = P) -> str:
+    """インライン小バッジ（HTML文字列を返す）"""
+    return (
+        f'<span style="display:inline-block;font-size:0.6rem;font-weight:600;'
+        f"color:{color};background:{color}14;border:1px solid {color}33;"
+        f'padding:0.08rem 0.4rem;border-radius:9999px;'
+        f'vertical-align:middle">{label}</span>'
+    )
+
+
 # ── キャッシュ付きデータ読み込み ──
 @st.cache_data(ttl=600, show_spinner="読み込み中...")
 def load_daily(sd):
