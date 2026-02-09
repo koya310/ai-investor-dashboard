@@ -5,6 +5,8 @@ Streamlitダッシュボードで使用するすべてのデータアクセス�
 KPI計算ロジックを集約する。
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os
