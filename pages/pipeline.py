@@ -23,17 +23,8 @@ timeline_df = load_runs_timeline()
 health = load_health_metrics()
 
 st.title("パイプライン")
-st.caption("本日の実行状況、直近の運用品質、日次の実行履歴を確認できます。")
-
-with st.expander("このページの見方", expanded=False):
-    st.markdown(
-        """
-        1. `本日のサマリー` で異常件数と完了率を確認  
-        2. `本日の投資プロセス` でどの工程が止まっているか確認  
-        3. `運用品質` で過去7日平均の実行品質を確認  
-        4. `日次運用カレンダー` から日付詳細へドリルダウン
-        """
-    )
+with st.container(border=True):
+    st.caption("本日の実行状況、直近の運用品質、日次の実行履歴を確認できます。")
 
 runs_today = pipeline["runs_today"]
 completed_runs = sum(1 for r in runs_today if r.get("status") == "completed")
@@ -199,55 +190,57 @@ date_options = (
 
 section_header("日付別の詳細を見る", color=P)
 
-pick_col, move_col = st.columns([4, 1])
-with pick_col:
-    selected_date = st.selectbox(
-        "対象日",
-        options=date_options,
-        format_func=lambda dd: f"{dd.isoformat()} ({WEEKDAY_JP[dd.weekday()]})",
-        index=0,
-    )
-with move_col:
-    st.markdown("")  # vertical align
-    st.markdown("")
-    if st.button("詳細へ", key="goto_selected_date", use_container_width=True):
-        st.query_params["date"] = selected_date.isoformat()
-        st.switch_page("pages/date_detail.py")
+with st.container(border=True):
+    pick_col, move_col = st.columns([4, 1])
+    with pick_col:
+        selected_date = st.selectbox(
+            "対象日",
+            options=date_options,
+            format_func=lambda dd: f"{dd.isoformat()} ({WEEKDAY_JP[dd.weekday()]})",
+            index=0,
+        )
+    with move_col:
+        st.markdown("")  # vertical align
+        st.markdown("")
+        if st.button("詳細へ", key="goto_selected_date", use_container_width=True):
+            st.query_params["date"] = selected_date.isoformat()
+            st.switch_page("pages/date_detail.py")
 
-with st.expander("最近14日をクイック選択", expanded=False):
-    for row_start in range(0, min(14, len(date_options)), 7):
-        row_dates = date_options[row_start : row_start + 7]
-        cols = st.columns(7)
-        for j, dd in enumerate(row_dates):
-            wd = WEEKDAY_JP[dd.weekday()]
-            with cols[j]:
-                label = f"{dd.month}/{dd.day}({wd})"
-                if st.button(label, key=f"goto_date_{dd}", use_container_width=True):
-                    st.query_params["date"] = dd.isoformat()
-                    st.switch_page("pages/date_detail.py")
+    with st.expander("最近14日をクイック選択", expanded=False):
+        for row_start in range(0, min(14, len(date_options)), 7):
+            row_dates = date_options[row_start : row_start + 7]
+            cols = st.columns(7)
+            for j, dd in enumerate(row_dates):
+                wd = WEEKDAY_JP[dd.weekday()]
+                with cols[j]:
+                    label = f"{dd.month}/{dd.day}({wd})"
+                    if st.button(label, key=f"goto_date_{dd}", use_container_width=True):
+                        st.query_params["date"] = dd.isoformat()
+                        st.switch_page("pages/date_detail.py")
 
 # ── 2. 過去7日間の運用品質 → st.metric ──
 
 section_header("運用品質", color=W, subtitle="過去7日間の平均")
-st.caption("目安: 正常処理率90%以上 / 稼働継続率95%以上")
+with st.container(border=True):
+    st.caption("目安: 正常処理率90%以上 / 稼働継続率95%以上")
 
-success_rate = max(0.0, 100.0 - health["error_rate"])
-h_items = [
-    ("情報収集", f"{health['news_per_day']:.0f}", "件/日",
-     health["news_per_day"] > 0),
-    ("AI分析", f"{health['analysis_per_day']:.1f}", "件/日",
-     health["analysis_per_day"] > 0),
-    ("売買判断", f"{health['signals_per_day']:.1f}", "件/日",
-     health["signals_per_day"] > 0),
-    ("正常処理率", f"{success_rate:.0f}%", "", success_rate >= 90),
-    ("稼働継続率", f"{health['uptime_pct']:.0f}%", "", health["uptime_pct"] >= 95),
-]
+    success_rate = max(0.0, 100.0 - health["error_rate"])
+    h_items = [
+        ("情報収集", f"{health['news_per_day']:.0f}", "件/日",
+         health["news_per_day"] > 0),
+        ("AI分析", f"{health['analysis_per_day']:.1f}", "件/日",
+         health["analysis_per_day"] > 0),
+        ("売買判断", f"{health['signals_per_day']:.1f}", "件/日",
+         health["signals_per_day"] > 0),
+        ("正常処理率", f"{success_rate:.0f}%", "", success_rate >= 90),
+        ("稼働継続率", f"{health['uptime_pct']:.0f}%", "", health["uptime_pct"] >= 95),
+    ]
 
-hcols = st.columns(5)
-for col, (label, val, sub, is_ok) in zip(hcols, h_items):
-    with col:
-        display_val = f"{val}{sub}" if sub else val
-        col.metric(label, display_val)
+    hcols = st.columns(5)
+    for col, (label, val, sub, is_ok) in zip(hcols, h_items):
+        with col:
+            display_val = f"{val}{sub}" if sub else val
+            col.metric(label, display_val)
 
 # ── 3. ニュース・分析活用（expander内） ──
 
@@ -352,65 +345,62 @@ with st.expander("ニュース・分析活用（直近14日）", expanded=False)
 
 section_header("日次運用カレンダー", color="#f59e0b", subtitle="直近14日")
 
-# 凡例
-st.caption("🟢 正常  🟡 一部異常  🔴 失敗  ⚪ 未実行")
+with st.container(border=True):
+    st.caption("🟢 正常  🟡 一部異常  🔴 失敗  ⚪ 未実行")
 
-if len(timeline_df) > 0:
-    for _, day in timeline_df.iterrows():
-        run_date = day["run_date"]
-        try:
-            dt_obj = _datetime.strptime(run_date, "%Y-%m-%d")
-            wd = WEEKDAY_JP[dt_obj.weekday()]
-            date_label = f"{run_date[5:]} ({wd})"
-        except Exception:
-            date_label = run_date[5:] if len(run_date) > 5 else run_date
+    if len(timeline_df) > 0:
+        for _, day in timeline_df.iterrows():
+            run_date = day["run_date"]
+            try:
+                dt_obj = _datetime.strptime(run_date, "%Y-%m-%d")
+                wd = WEEKDAY_JP[dt_obj.weekday()]
+                date_label = f"{run_date[5:]} ({wd})"
+            except Exception:
+                date_label = run_date[5:] if len(run_date) > 5 else run_date
 
-        failed = int(day["failed"] or 0)
-        interrupted = int(day["interrupted"] or 0)
-        completed = int(day["completed"] or 0)
-        total_runs = int(day["total_runs"] or 0)
-        errors = int(day["total_errors"] or 0)
-        signals = int(day["total_signals"] or 0)
-        t_trades = int(day["total_trades"] or 0)
-        modes_raw = day["modes"] or ""
+            failed = int(day["failed"] or 0)
+            interrupted = int(day["interrupted"] or 0)
+            completed = int(day["completed"] or 0)
+            total_runs = int(day["total_runs"] or 0)
+            errors = int(day["total_errors"] or 0)
+            signals = int(day["total_signals"] or 0)
+            t_trades = int(day["total_trades"] or 0)
+            modes_raw = day["modes"] or ""
 
-        # ステータスドット
-        if failed > 0:
-            dot = "🔴"
-        elif errors > 0 or interrupted > 0:
-            dot = "🟡"
-        elif completed > 0:
-            dot = "🟢"
-        else:
-            dot = "⚪"
+            if failed > 0:
+                dot = "🔴"
+            elif errors > 0 or interrupted > 0:
+                dot = "🟡"
+            elif completed > 0:
+                dot = "🟢"
+            else:
+                dot = "⚪"
 
-        # モード名変換
-        mode_parts = [
-            MODE_LABELS.get(m.strip(), m.strip())
-            for m in modes_raw.split(",")
-            if m.strip()
-        ]
-        mode_display = ", ".join(mode_parts) if mode_parts else "-"
+            mode_parts = [
+                MODE_LABELS.get(m.strip(), m.strip())
+                for m in modes_raw.split(",")
+                if m.strip()
+            ]
+            mode_display = ", ".join(mode_parts) if mode_parts else "-"
 
-        # 実績数値
-        nums_parts = []
-        if signals > 0:
-            nums_parts.append(f":blue[判断 {signals}件]")
-        if t_trades > 0:
-            nums_parts.append(f":green[約定 {t_trades}件]")
-        if errors > 0:
-            nums_parts.append(f":red[異常 {errors}件]")
-        nums_str = " · ".join(nums_parts) if nums_parts else "-"
+            nums_parts = []
+            if signals > 0:
+                nums_parts.append(f":blue[判断 {signals}件]")
+            if t_trades > 0:
+                nums_parts.append(f":green[約定 {t_trades}件]")
+            if errors > 0:
+                nums_parts.append(f":red[異常 {errors}件]")
+            nums_str = " · ".join(nums_parts) if nums_parts else "-"
 
-        col_date, col_dot, col_info, col_nums = st.columns([2, 0.5, 4, 3])
-        with col_date:
-            st.markdown(f"**{date_label}**")
-        with col_dot:
-            st.markdown(dot)
-        with col_info:
-            st.markdown(f"{mode_display}")
-            st.caption(f"{completed}/{total_runs}回 正常完了")
-        with col_nums:
-            st.markdown(nums_str)
-else:
-    st.info("直近14日間の実行記録なし")
+            col_date, col_dot, col_info, col_nums = st.columns([2, 0.5, 4, 3])
+            with col_date:
+                st.markdown(f"**{date_label}**")
+            with col_dot:
+                st.markdown(dot)
+            with col_info:
+                st.markdown(f"{mode_display}")
+                st.caption(f"{completed}/{total_runs}回 正常完了")
+            with col_nums:
+                st.markdown(nums_str)
+    else:
+        st.info("直近14日間の実行記録なし")

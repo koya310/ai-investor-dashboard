@@ -42,7 +42,57 @@ KPI_TARGETS = {
 }
 
 
-DB_PATH = PROJECT_ROOT / "data" / "ai_investor.db"
+DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "ai_investor.db"
+
+
+def _is_valid_dashboard_db(path: Path) -> bool:
+    """最低限必要なテーブルが存在するDBかを判定する。"""
+    if not path.exists() or path.stat().st_size == 0:
+        return False
+    try:
+        with sqlite3.connect(str(path), timeout=5) as conn:
+            rows = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+    except Exception:
+        return False
+
+    tables = {r[0] for r in rows}
+    required = {"news", "ai_analysis", "signals", "system_runs", "trades"}
+    return required.issubset(tables)
+
+
+def _resolve_db_path() -> Path:
+    """利用可能なDBを優先順で解決する。"""
+    env_path = os.getenv("AI_INVESTOR_DB_PATH") or os.getenv("DASHBOARD_DB_PATH")
+    candidates: list[Path] = []
+    if env_path:
+        candidates.append(Path(env_path).expanduser())
+
+    candidates.extend(
+        [
+            DEFAULT_DB_PATH,
+            PROJECT_ROOT.parent.parent / "93_db" / "ai_investor.db",
+            PROJECT_ROOT.parent / "data" / "ai_investor.db",
+        ]
+    )
+
+    seen: set[Path] = set()
+    for p in candidates:
+        rp = p.resolve() if p.exists() else p
+        if rp in seen:
+            continue
+        seen.add(rp)
+        if _is_valid_dashboard_db(p):
+            if p != DEFAULT_DB_PATH:
+                logger.warning(f"dashboard DB fallbackを使用: {p}")
+            return p
+
+    logger.warning(f"有効なDBが見つからないため既定値を使用: {DEFAULT_DB_PATH}")
+    return DEFAULT_DB_PATH
+
+
+DB_PATH = _resolve_db_path()
 
 
 def _connect():
@@ -1467,28 +1517,51 @@ def get_news_signal_connection(days: int = 14) -> dict:
 # ============================================================
 
 
-def get_available_log_dates(days: int = 30) -> list[str]:
+def get_available_log_dates(limit: int = 180) -> list[str]:
     """ログが存在する日付の一覧を返す（降順）。"""
     with _connect() as conn:
         rows = conn.execute(
             """
             SELECT DISTINCT d FROM (
                 SELECT date(created_at) as d FROM news
-                WHERE created_at >= datetime('now', ? || ' days')
                 UNION
                 SELECT date(analyzed_at) FROM ai_analysis
-                WHERE analyzed_at >= datetime('now', ? || ' days')
                 UNION
                 SELECT date(detected_at) FROM signals
-                WHERE detected_at >= datetime('now', ? || ' days')
                 UNION
                 SELECT date(started_at) FROM system_runs
-                WHERE started_at >= datetime('now', ? || ' days')
-            ) ORDER BY d DESC
+            ) WHERE d IS NOT NULL
+            ORDER BY d DESC
+            LIMIT ?
             """,
-            (f"-{days}",) * 4,
+            (limit,),
         ).fetchall()
         return [r["d"] for r in rows if r["d"]]
+
+
+def get_data_latest_dates() -> dict[str, str]:
+    """主要テーブルの最新データ日付を返す。"""
+    with _connect() as conn:
+        row = conn.execute(
+            """
+            SELECT
+                (SELECT max(date(created_at)) FROM news) as news,
+                (SELECT max(date(analyzed_at)) FROM ai_analysis) as analysis,
+                (SELECT max(date(detected_at)) FROM signals) as signals,
+                (SELECT max(date(started_at)) FROM system_runs) as runs,
+                (SELECT max(date(coalesce(exit_timestamp, entry_timestamp))) FROM trades) as trades
+            """
+        ).fetchone()
+
+    dates = {
+        "news": row["news"] or "",
+        "analysis": row["analysis"] or "",
+        "signals": row["signals"] or "",
+        "runs": row["runs"] or "",
+        "trades": row["trades"] or "",
+    }
+    dates["latest"] = max([d for d in dates.values() if d], default="")
+    return dates
 
 
 def get_log_news(target_date: str, limit: int = 200) -> pd.DataFrame:

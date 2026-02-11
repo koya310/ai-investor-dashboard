@@ -33,7 +33,7 @@ MODE_LABELS = {
 def fmt_currency(val: float, show_sign: bool = False) -> str:
     """通貨フォーマット: $1,234 or +$1,234"""
     if show_sign:
-        sign = "+" if val >= 0 else ""
+        sign = "+" if val > 0 else ("-" if val < 0 else "")
         return f"{sign}${abs(val):,.0f}"
     return f"${val:,.0f}"
 
@@ -41,8 +41,8 @@ def fmt_currency(val: float, show_sign: bool = False) -> str:
 def fmt_pct(val: float, show_sign: bool = False, decimals: int = 1) -> str:
     """パーセントフォーマット: 12.3% or +12.3%"""
     if show_sign:
-        sign = "+" if val >= 0 else ""
-        return f"{sign}{val:.{decimals}f}%"
+        sign = "+" if val > 0 else ("-" if val < 0 else "")
+        return f"{sign}{abs(val):.{decimals}f}%"
     return f"{val:.{decimals}f}%"
 
 

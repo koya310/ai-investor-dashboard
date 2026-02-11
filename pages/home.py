@@ -30,17 +30,8 @@ alpaca_pf = d["alpaca_pf"]
 alpaca_positions = d["alpaca_positions"]
 
 st.title("ポートフォリオ")
-st.caption("Go/No-Go判定に必要なKPI・資産推移・取引実績を確認します。")
-
-with st.expander("このページの見方", expanded=False):
-    st.markdown(
-        """
-        1. `判定サマリー` で Go/No-Go 達成状況を確認  
-        2. `ポートフォリオ概要` と `資産推移` で成績と市場比較を確認  
-        3. `実取引チェックリスト` で不足KPIを把握  
-        4. `取引履歴` で個別トレードを振り返り
-        """
-    )
+with st.container(border=True):
+    st.caption("Go/No-Go判定に必要なKPI・資産推移・取引実績を表示します。")
 
 
 # ============================================================
@@ -353,166 +344,170 @@ else:
 # ============================================================
 
 section_header("資産推移", color=P, subtitle="ポートフォリオ vs SPY")
-st.caption("買い/売りマーカーは約定日の位置を示します。")
+with st.container(border=True):
+    st.caption("買い/売りマーカーは約定日の位置を示します。")
 
-if len(daily) > 0:
-    fig = go.Figure()
+    if len(daily) > 0:
+        fig = go.Figure()
 
-    fig.add_trace(
-        go.Scatter(
-            x=daily["date"],
-            y=[capital] * len(daily),
-            mode="lines",
-            line=dict(width=0),
-            showlegend=False,
-            hoverinfo="skip",
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=daily["date"],
-            y=daily["total"],
-            fill="tonexty",
-            fillcolor="rgba(225,29,72,0.04)",
-            mode="none",
-            showlegend=False,
-            hoverinfo="skip",
-        )
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=daily["date"],
-            y=daily["total"],
-            name="ポートフォリオ",
-            mode="lines+markers",
-            line=dict(color=P, width=2.5),
-            marker=dict(size=5, color=P),
-            hovertemplate="%{x|%m/%d}  $%{y:,.0f}<extra></extra>",
-        )
-    )
-
-    if len(spy) > 0:
         fig.add_trace(
             go.Scatter(
-                x=spy["date"],
-                y=spy["spy_total"],
-                name="SPY",
+                x=daily["date"],
+                y=[capital] * len(daily),
                 mode="lines",
-                line=dict(color="#94a3b8", width=1.5, dash="dash"),
-                hovertemplate="%{x|%m/%d}  SPY $%{y:,.0f}<extra></extra>",
+                line=dict(width=0),
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=daily["date"],
+                y=daily["total"],
+                fill="tonexty",
+                fillcolor="rgba(225,29,72,0.04)",
+                mode="none",
+                showlegend=False,
+                hoverinfo="skip",
             )
         )
 
-    buy_rows = trades[
-        (trades["action"] == "BUY") & trades["entry_timestamp"].notna()
-    ].copy()
-    if len(buy_rows) > 0:
-        buy_rows["entry_date"] = pd.to_datetime(
-            buy_rows["entry_timestamp"], format="mixed"
-        ).dt.normalize()
-        merged = buy_rows.merge(
-            daily[["date", "total"]],
-            left_on="entry_date",
-            right_on="date",
-            how="inner",
+        fig.add_trace(
+            go.Scatter(
+                x=daily["date"],
+                y=daily["total"],
+                name="ポートフォリオ",
+                mode="lines+markers",
+                line=dict(color=P, width=2.5),
+                marker=dict(size=5, color=P),
+                hovertemplate="%{x|%m/%d}  $%{y:,.0f}<extra></extra>",
+            )
         )
-        if len(merged) > 0:
+
+        if len(spy) > 0:
             fig.add_trace(
                 go.Scatter(
-                    x=merged["date"],
-                    y=merged["total"],
-                    name="買い",
-                    mode="markers",
-                    marker=dict(
-                        symbol="triangle-up",
-                        size=12,
-                        color=W,
-                        line=dict(width=1.5, color="#fff"),
-                    ),
-                    hovertemplate="%{x|%m/%d} 買い %{text}<extra></extra>",
-                    text=merged["ticker"],
-                    showlegend=False,
+                    x=spy["date"],
+                    y=spy["spy_total"],
+                    name="SPY",
+                    mode="lines",
+                    line=dict(color="#94a3b8", width=1.5, dash="dash"),
+                    hovertemplate="%{x|%m/%d}  SPY $%{y:,.0f}<extra></extra>",
                 )
             )
 
-    sell_rows = trades[
-        (trades["status"] == "CLOSED") & trades["exit_timestamp"].notna()
-    ].copy()
-    if len(sell_rows) > 0:
-        sell_rows["exit_date"] = pd.to_datetime(
-            sell_rows["exit_timestamp"], format="mixed"
-        ).dt.normalize()
-        merged = sell_rows.merge(
-            daily[["date", "total"]],
-            left_on="exit_date",
-            right_on="date",
-            how="inner",
-        )
-        if len(merged) > 0:
-            fig.add_trace(
-                go.Scatter(
-                    x=merged["date"],
-                    y=merged["total"],
-                    name="売り",
-                    mode="markers",
-                    marker=dict(
-                        symbol="triangle-down",
-                        size=12,
-                        color=L,
-                        line=dict(width=1.5, color="#fff"),
-                    ),
-                    hovertemplate="%{x|%m/%d} 売り %{text}<extra></extra>",
-                    text=merged["ticker"],
-                    showlegend=False,
-                )
+        buy_rows = trades[
+            (trades["action"] == "BUY") & trades["entry_timestamp"].notna()
+        ].copy()
+        if len(buy_rows) > 0:
+            buy_rows["entry_date"] = pd.to_datetime(
+                buy_rows["entry_timestamp"], format="mixed"
+            ).dt.normalize()
+            merged = buy_rows.merge(
+                daily[["date", "total"]],
+                left_on="entry_date",
+                right_on="date",
+                how="inner",
             )
+            if len(merged) > 0:
+                fig.add_trace(
+                    go.Scatter(
+                        x=merged["date"],
+                        y=merged["total"],
+                        name="買い",
+                        mode="markers",
+                        marker=dict(
+                            symbol="triangle-up",
+                            size=12,
+                            color=W,
+                            line=dict(width=1.5, color="#fff"),
+                        ),
+                        hovertemplate="%{x|%m/%d} 買い %{text}<extra></extra>",
+                        text=merged["ticker"],
+                        showlegend=False,
+                    ),
+                )
 
-    fig.add_hline(y=capital, line_dash="dot", line_color="#cbd5e1", line_width=1)
-    fig.add_annotation(
-        x=daily["date"].iloc[0],
-        y=capital,
-        text=f"スタート ${capital:,.0f}",
-        showarrow=False,
-        font=dict(size=10, color="#94a3b8"),
-        xanchor="left",
-        yshift=10,
-    )
+        sell_rows = trades[
+            (trades["status"] == "CLOSED") & trades["exit_timestamp"].notna()
+        ].copy()
+        if len(sell_rows) > 0:
+            sell_rows["exit_date"] = pd.to_datetime(
+                sell_rows["exit_timestamp"], format="mixed"
+            ).dt.normalize()
+            merged = sell_rows.merge(
+                daily[["date", "total"]],
+                left_on="exit_date",
+                right_on="date",
+                how="inner",
+            )
+            if len(merged) > 0:
+                fig.add_trace(
+                    go.Scatter(
+                        x=merged["date"],
+                        y=merged["total"],
+                        name="売り",
+                        mode="markers",
+                        marker=dict(
+                            symbol="triangle-down",
+                            size=12,
+                            color=L,
+                            line=dict(width=1.5, color="#fff"),
+                        ),
+                        hovertemplate="%{x|%m/%d} 売り %{text}<extra></extra>",
+                        text=merged["ticker"],
+                        showlegend=False,
+                    )
+                )
 
-    fig.update_layout(
-        template="plotly_white",
-        height=320,
-        margin=dict(t=20, b=28, l=65, r=20),
-        xaxis=dict(title="", gridcolor="#f1f5f9", linecolor="#e2e8f0"),
-        yaxis=dict(
-            title="",
-            tickprefix="$",
-            tickformat=",",
-            gridcolor="#f1f5f9",
-            linecolor="#e2e8f0",
-        ),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            font=dict(size=11),
-        ),
-        font=dict(
-            family="Plus Jakarta Sans, Hiragino Kaku Gothic ProN, sans-serif", size=12
-        ),
-        plot_bgcolor="#fff",
-        paper_bgcolor="#fff",
-        hoverlabel=dict(
-            bgcolor="#0f172a",
-            font_color="#fff",
-            font_size=12,
-            bordercolor="#0f172a",
-        ),
-    )
+        fig.add_hline(y=capital, line_dash="dot", line_color="#cbd5e1", line_width=1)
+        fig.add_annotation(
+            x=daily["date"].iloc[0],
+            y=capital,
+            text=f"スタート ${capital:,.0f}",
+            showarrow=False,
+            font=dict(size=10, color="#94a3b8"),
+            xanchor="left",
+            yshift=10,
+        )
 
-    st.plotly_chart(fig, use_container_width=True)
+        fig.update_layout(
+            template="plotly_white",
+            height=320,
+            margin=dict(t=20, b=28, l=65, r=20),
+            xaxis=dict(title="", gridcolor="#f1f5f9", linecolor="#e2e8f0"),
+            yaxis=dict(
+                title="",
+                tickprefix="$",
+                tickformat=",",
+                gridcolor="#f1f5f9",
+                linecolor="#e2e8f0",
+            ),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                font=dict(size=11),
+            ),
+            font=dict(
+                family="Plus Jakarta Sans, Hiragino Kaku Gothic ProN, sans-serif",
+                size=12,
+            ),
+            plot_bgcolor="#fff",
+            paper_bgcolor="#fff",
+            hoverlabel=dict(
+                bgcolor="#0f172a",
+                font_color="#fff",
+                font_size=12,
+                bordercolor="#0f172a",
+            ),
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("資産推移データがありません。")
 
 # ============================================================
 # 3. 実取引チェックリスト → st.progress + st.columns
@@ -610,22 +605,22 @@ kpi_checks.append({
 achieved_count = sum(1 for item in kpi_checks if item["ok"])
 pending_count = len(kpi_checks) - achieved_count
 
-sum_col1, sum_col2, sum_col3 = st.columns(3)
-sum_col1.metric("達成項目", f"{achieved_count}/{len(kpi_checks)}")
-sum_col2.metric("未達項目", f"{pending_count}")
-sum_col3.metric(
-    "総合判定",
-    {
-        "GO": "GO",
-        "CONDITIONAL_GO": "条件付き",
-        "NO_GO": "NO_GO",
-    }.get(_v, _v),
-)
-
-if verdict["recommendations"]:
-    st.caption(f"優先改善: {' / '.join(verdict['recommendations'][:3])}")
-
 with st.container(border=True):
+    sum_col1, sum_col2, sum_col3 = st.columns(3)
+    sum_col1.metric("達成項目", f"{achieved_count}/{len(kpi_checks)}")
+    sum_col2.metric("未達項目", f"{pending_count}")
+    sum_col3.metric(
+        "総合判定",
+        {
+            "GO": "GO",
+            "CONDITIONAL_GO": "条件付き",
+            "NO_GO": "NO_GO",
+        }.get(_v, _v),
+    )
+
+    if verdict["recommendations"]:
+        st.caption(f"優先改善: {' / '.join(verdict['recommendations'][:3])}")
+
     for item in kpi_checks:
         col_label, col_bar, col_gap = st.columns([2, 4, 2])
 

@@ -35,7 +35,7 @@ nav = st.navigation(
 # ── サイドバー ──
 with st.sidebar:
     st.markdown("### AI Investor")
-    st.caption("Phase 3 ペーパートレード運用ダッシュボード")
+    st.caption("Phase 3 Monitor")
 
     # Go/No-Go カウントダウン
     deadline_dt = datetime.strptime(_dm.GONOGO_DEADLINE, "%Y-%m-%d")
@@ -66,18 +66,7 @@ with st.sidebar:
     else:
         st.info("実行記録なし")
 
-    with st.expander("使い方", expanded=False):
-        st.markdown(
-            """
-            1. `ポートフォリオ` で Go/No-Go 判定と資産推移を確認
-            2. `パイプライン` で本日の実行ステップと異常有無を確認
-            3. `日付詳細` で特定日のニュース〜取引まで追跡
-            4. `システム仕様` で計算式・判定条件を参照
-            """
-        )
-
     st.divider()
-    st.caption(f"Phase 3 開始: {_dm.PHASE3_START}")
-    st.caption(f"初期資本: ${_dm.INITIAL_CAPITAL:,.0f}")
+    st.caption(f"最新判定期限: {_dm.GONOGO_DEADLINE}")
 
 nav.run()
