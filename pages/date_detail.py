@@ -6,12 +6,38 @@ from datetime import date, datetime
 import dashboard_data as _dm
 import streamlit as st
 
-from components.shared import P, W, L, WEEKDAY_JP, section_header
+from components.shared import P, W, WEEKDAY_JP, MODE_LABELS, section_header
 
 logger = logging.getLogger(__name__)
 
 # ── 対象日付を取得 ──
-target_date = st.query_params.get("date", date.today().isoformat())
+query_date = st.query_params.get("date", date.today().isoformat())
+available_dates = _dm.get_available_log_dates(60)
+date_options = [date.fromisoformat(d) for d in available_dates] if available_dates else [date.today()]
+
+if available_dates and query_date not in available_dates:
+    target_date = available_dates[0]
+else:
+    target_date = query_date
+
+target_idx = 0
+for i, dd in enumerate(date_options):
+    if dd.isoformat() == target_date:
+        target_idx = i
+        break
+
+selected_date = st.selectbox(
+    "表示日",
+    options=date_options,
+    index=target_idx,
+    format_func=lambda dd: f"{dd.isoformat()} ({WEEKDAY_JP[dd.weekday()]})",
+)
+
+if selected_date.isoformat() != target_date:
+    st.query_params["date"] = selected_date.isoformat()
+    st.rerun()
+
+target_date = selected_date.isoformat()
 
 try:
     dt = datetime.strptime(target_date, "%Y-%m-%d")
@@ -20,41 +46,57 @@ try:
 except Exception:
     st.title(target_date)
 
+st.caption("日次の実行ログをニュース収集から取引まで時系列で確認します。")
+with st.expander("このページの見方", expanded=False):
+    st.markdown(
+        """
+        1. 上部メトリクスで当日の処理量を確認  
+        2. `システム実行ログ` で失敗ランとエラー文を確認  
+        3. `ティッカー別フロー` で銘柄ごとのニュース→分析→シグナル→取引を確認  
+        4. 下部タブで生ログ（ニュース本文・AI要約・シグナル・取引）を確認
+        """
+    )
+
 # ── サマリー ──
 summary = _dm.get_log_day_summary(target_date)
+runs = _dm.get_log_system_runs(target_date)
+completed_runs = len(runs[runs["status"] == "completed"]) if len(runs) > 0 else 0
+run_success_rate = (completed_runs / len(runs) * 100) if len(runs) > 0 else 0
 
-m1, m2, m3, m4, m5 = st.columns(5)
+m1, m2, m3, m4, m5, m6 = st.columns(6)
 m1.metric("ニュース", f"{summary['news']}件")
 m2.metric("AI分析", f"{summary['analysis']}件")
 m3.metric("シグナル", f"{summary['signals']}件")
 m4.metric("取引", f"{summary['trades']}件")
 m5.metric("実行回数", f"{summary['runs']}回")
+m6.metric("完了率", f"{run_success_rate:.0f}%")
 
 # ── システム実行ログ ──
 section_header("システム実行ログ", color=P)
-runs = _dm.get_log_system_runs(target_date)
 if len(runs) > 0:
     for _, r in runs.iterrows():
         status = r["status"]
+        mode_label = MODE_LABELS.get(r["run_mode"], r["run_mode"])
         if status == "completed":
             st.success(
-                f"**{r['run_mode']}** | {r['started_at']} → {r.get('ended_at', '')} | "
+                f"**{mode_label}** | {r['started_at']} → {r.get('ended_at', '')} | "
                 f"ニュース {r.get('news_collected', 0)} / "
                 f"シグナル {r.get('signals_detected', 0)} / "
                 f"取引 {r.get('trades_executed', 0)}"
             )
         elif status == "failed":
             st.error(
-                f"**{r['run_mode']}** | {r['started_at']} | "
+                f"**{mode_label}** | {r['started_at']} | "
                 f"エラー: {r.get('error_message', '')[:100]}"
             )
         else:
-            st.warning(f"**{r['run_mode']}** | {r['started_at']} | {status}")
+            st.warning(f"**{mode_label}** | {r['started_at']} | {status}")
 else:
     st.info("この日の実行記録なし")
 
 # ── ティッカー別フロー ──
 section_header("ティッカー別フロー", color=W)
+st.caption("同日の銘柄別に、ニュース→分析→シグナル→取引の発生有無を表示します。")
 ticker_flow = _dm.get_date_ticker_flow(target_date)
 
 if ticker_flow:
@@ -113,13 +155,24 @@ else:
     st.info("この日のデータなし")
 
 # ── 詳細タブ ──
+news_df = _dm.get_log_news(target_date)
+analysis_df = _dm.get_log_analyses(target_date)
+sig_df = _dm.get_log_signals(target_date)
+trades_df = _dm.get_log_trades(target_date)
+
 tab_news, tab_analysis, tab_signals, tab_trades = st.tabs(
-    ["ニュース", "AI分析", "シグナル", "取引"]
+    [
+        f"ニュース ({len(news_df)})",
+        f"AI分析 ({len(analysis_df)})",
+        f"シグナル ({len(sig_df)})",
+        f"取引 ({len(trades_df)})",
+    ]
 )
 
 with tab_news:
-    news_df = _dm.get_log_news(target_date)
     if len(news_df) > 0:
+        if "published_at" in news_df.columns:
+            news_df = news_df.sort_values("published_at", ascending=False)
         for _, n in news_df.head(30).iterrows():
             with st.expander(f"{n['source']} | {n['title'][:80]}"):
                 st.markdown(n.get("content", "")[:500])
@@ -129,8 +182,9 @@ with tab_news:
         st.info("ニュースなし")
 
 with tab_analysis:
-    analysis_df = _dm.get_log_analyses(target_date)
     if len(analysis_df) > 0:
+        if "analyzed_at" in analysis_df.columns:
+            analysis_df = analysis_df.sort_values("analyzed_at", ascending=False)
         for _, a in analysis_df.iterrows():
             direction = a.get("direction", "")
             dir_color = ("green" if direction == "bullish"
@@ -144,17 +198,24 @@ with tab_analysis:
         st.info("AI分析なし")
 
 with tab_signals:
-    sig_df = _dm.get_log_signals(target_date)
     if len(sig_df) > 0:
-        st.dataframe(sig_df[["ticker", "signal_type", "conviction",
-                             "confidence", "price", "status", "detected_at"]],
-                     use_container_width=True)
+        if "detected_at" in sig_df.columns:
+            sig_df = sig_df.sort_values("detected_at", ascending=False)
+        st.dataframe(
+            sig_df[
+                ["ticker", "signal_type", "conviction", "confidence",
+                 "price", "status", "detected_at"]
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
     else:
         st.info("シグナルなし")
 
 with tab_trades:
-    trades_df = _dm.get_log_trades(target_date)
     if len(trades_df) > 0:
-        st.dataframe(trades_df, use_container_width=True)
+        if "entry_timestamp" in trades_df.columns:
+            trades_df = trades_df.sort_values("entry_timestamp", ascending=False)
+        st.dataframe(trades_df, use_container_width=True, hide_index=True)
     else:
         st.info("取引なし")

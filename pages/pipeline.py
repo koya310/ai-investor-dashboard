@@ -1,19 +1,17 @@
 """Pipeline — パイプライン監視（ネイティブコンポーネント版）"""
 
-import json as _json
 import logging
 from datetime import date as _date
 from datetime import datetime as _datetime
 
 import dashboard_data as _dm
-import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
 from components.shared import (
     P, W, L,
     WEEKDAY_JP, MODE_LABELS,
-    section_header, fmt_pct,
+    section_header,
     load_pipeline_status, load_runs_timeline, load_health_metrics,
 )
 
@@ -23,6 +21,38 @@ logger = logging.getLogger(__name__)
 pipeline = load_pipeline_status()
 timeline_df = load_runs_timeline()
 health = load_health_metrics()
+
+st.title("パイプライン")
+st.caption("本日の実行状況、直近の運用品質、日次の実行履歴を確認できます。")
+
+with st.expander("このページの見方", expanded=False):
+    st.markdown(
+        """
+        1. `本日のサマリー` で異常件数と完了率を確認  
+        2. `本日の投資プロセス` でどの工程が止まっているか確認  
+        3. `運用品質` で過去7日平均の実行品質を確認  
+        4. `日次運用カレンダー` から日付詳細へドリルダウン
+        """
+    )
+
+runs_today = pipeline["runs_today"]
+completed_runs = sum(1 for r in runs_today if r.get("status") == "completed")
+run_success_rate = (completed_runs / len(runs_today) * 100) if runs_today else 0.0
+today_signals = pipeline["steps"]["signals"]["count"]
+today_trades = pipeline["steps"]["trading"]["count"]
+
+section_header("本日のサマリー", color=P, subtitle=pipeline["date"])
+s1, s2, s3, s4 = st.columns(4)
+s1.metric("実行回数", f"{len(runs_today)}回")
+s2.metric("完了率", f"{run_success_rate:.0f}%")
+s3.metric("シグナル", f"{today_signals}件")
+s4.metric("約定", f"{today_trades}件")
+if pipeline["total_errors"] > 0:
+    st.warning(f"本日の異常件数: {pipeline['total_errors']}件")
+elif runs_today:
+    st.success("本日は異常なしで稼働中です。")
+else:
+    st.info("本日はまだ実行されていません。")
 
 # ── 1. 本日の投資プロセス ──
 
@@ -80,6 +110,14 @@ with st.container(border=True):
                     f'✓</div>',
                     unsafe_allow_html=True,
                 )
+            elif status == "skipped":
+                st.markdown(
+                    f'<div style="width:28px;height:28px;border-radius:50%;'
+                    f'background:#f59e0b;color:#fff;display:flex;align-items:center;'
+                    f'justify-content:center;font-size:0.8rem;font-weight:700">'
+                    f'↷</div>',
+                    unsafe_allow_html=True,
+                )
             elif status == "failed":
                 st.markdown(
                     f'<div style="width:28px;height:28px;border-radius:50%;'
@@ -99,6 +137,13 @@ with st.container(border=True):
                 )
 
         with col_body:
+            status_label = {
+                "completed": "完了",
+                "skipped": "スキップ",
+                "failed": "失敗",
+                "pending": "未実行",
+            }.get(status, status)
+
             # シグナルの内訳
             extra = ""
             if key == "signals" and count > 0:
@@ -113,7 +158,7 @@ with st.container(border=True):
                     extra = f" ({' / '.join(parts)})"
 
             st.markdown(f"**{label}**{extra}")
-            st.caption(desc)
+            st.caption(f"{desc} / 状態: {status_label}")
 
         with col_right:
             count_str = f"{count}件" if count > 0 else "-"
@@ -130,7 +175,6 @@ with st.container(border=True):
             st.divider()
 
     # 本日の実行情報
-    runs_today = pipeline["runs_today"]
     total_errors = pipeline["total_errors"]
     if runs_today:
         mode_labels = sorted(
@@ -147,25 +191,45 @@ with st.container(border=True):
 # ── 日付ドリルダウン ──
 
 log_dates = _dm.get_available_log_dates(30)
-date_options = ([_date.fromisoformat(d) for d in log_dates]
-                if log_dates else [_date.today()])
+date_options = (
+    sorted([_date.fromisoformat(d) for d in log_dates], reverse=True)
+    if log_dates
+    else [_date.today()]
+)
 
 section_header("日付別の詳細を見る", color=P)
 
-for row_start in range(0, min(14, len(date_options)), 7):
-    row_dates = date_options[row_start : row_start + 7]
-    cols = st.columns(7)
-    for j, dd in enumerate(row_dates):
-        wd = WEEKDAY_JP[dd.weekday()]
-        with cols[j]:
-            label = f"{dd.month}/{dd.day}({wd})"
-            if st.button(label, key=f"goto_date_{dd}", use_container_width=True):
-                st.query_params["date"] = dd.isoformat()
-                st.switch_page("pages/date_detail.py")
+pick_col, move_col = st.columns([4, 1])
+with pick_col:
+    selected_date = st.selectbox(
+        "対象日",
+        options=date_options,
+        format_func=lambda dd: f"{dd.isoformat()} ({WEEKDAY_JP[dd.weekday()]})",
+        index=0,
+    )
+with move_col:
+    st.markdown("")  # vertical align
+    st.markdown("")
+    if st.button("詳細へ", key="goto_selected_date", use_container_width=True):
+        st.query_params["date"] = selected_date.isoformat()
+        st.switch_page("pages/date_detail.py")
+
+with st.expander("最近14日をクイック選択", expanded=False):
+    for row_start in range(0, min(14, len(date_options)), 7):
+        row_dates = date_options[row_start : row_start + 7]
+        cols = st.columns(7)
+        for j, dd in enumerate(row_dates):
+            wd = WEEKDAY_JP[dd.weekday()]
+            with cols[j]:
+                label = f"{dd.month}/{dd.day}({wd})"
+                if st.button(label, key=f"goto_date_{dd}", use_container_width=True):
+                    st.query_params["date"] = dd.isoformat()
+                    st.switch_page("pages/date_detail.py")
 
 # ── 2. 過去7日間の運用品質 → st.metric ──
 
 section_header("運用品質", color=W, subtitle="過去7日間の平均")
+st.caption("目安: 正常処理率90%以上 / 稼働継続率95%以上")
 
 success_rate = max(0.0, 100.0 - health["error_rate"])
 h_items = [
@@ -234,6 +298,10 @@ with st.expander("ニュース・分析活用（直近14日）", expanded=False)
             xaxis=dict(showgrid=False, tickfont_size=10),
             yaxis=dict(showgrid=True, gridcolor="#f1f5f9", tickfont_size=10),
             barmode="group", bargap=0.3,
+            font=dict(
+                family="Plus Jakarta Sans, Hiragino Kaku Gothic ProN, sans-serif",
+                size=11,
+            ),
         )
         st.plotly_chart(fig_flow, use_container_width=True)
 

@@ -10,7 +10,7 @@ import streamlit as st
 
 from components.shared import (
     P, W, L,
-    fmt_currency, fmt_pct, fmt_delta, color_for_value,
+    fmt_currency, fmt_pct, fmt_delta,
     section_header, render_pill,
     load_common_data,
 )
@@ -28,6 +28,19 @@ verdict = d["verdict"]
 capital = d["capital"]
 alpaca_pf = d["alpaca_pf"]
 alpaca_positions = d["alpaca_positions"]
+
+st.title("ポートフォリオ")
+st.caption("Go/No-Go判定に必要なKPI・資産推移・取引実績を確認します。")
+
+with st.expander("このページの見方", expanded=False):
+    st.markdown(
+        """
+        1. `判定サマリー` で Go/No-Go 達成状況を確認  
+        2. `ポートフォリオ概要` と `資産推移` で成績と市場比較を確認  
+        3. `実取引チェックリスト` で不足KPIを把握  
+        4. `取引履歴` で個別トレードを振り返り
+        """
+    )
 
 
 # ============================================================
@@ -154,7 +167,7 @@ def show_analysis_dialog():
 
 
 # ============================================================
-# 0. クイックステータス + Verdict（ページ最上部）
+# 0. 判定サマリー（ページ最上部）
 # ============================================================
 
 # --- Verdict 計算 ---
@@ -165,7 +178,7 @@ _v = verdict["status"]
 _passed = verdict["passed"]
 _total = verdict["total"]
 
-# --- クイックステータス 3カード → st.metric ---
+# --- クイックステータス ---
 _wr = kpi["win_rate"]
 _pnl_total = kpi.get("total_pnl", 0)
 _last_run = d["last_run"]
@@ -181,47 +194,59 @@ if _last_run:
 else:
     _sys_label = "データなし"
 
-qs1, qs2, qs3 = st.columns(3)
-qs1.metric("システム状態", _sys_label)
-qs2.metric("勝率", fmt_pct(_wr, decimals=0),
-           delta=f"目標 {_targets['win_rate']:.0f}%", delta_color="off")
-qs3.metric("累積損益", fmt_currency(abs(_pnl_total)),
-           delta=fmt_delta(_pnl_total))
+section_header("判定サマリー", color=P, subtitle=f"{_passed}/{_total}項目達成")
 
-# --- Verdict バナー → st.success / st.warning / st.error ---
-_verdict_cols = st.columns([5, 1])
-with _verdict_cols[0]:
-    if _v == "GO":
-        st.success(
-            f"**GO** — 全{_total}項目を達成。Phase 4（実取引）へ移行可能です。"
-        )
-    elif _v == "CONDITIONAL_GO":
-        _recs = " / ".join(verdict["recommendations"][:2])
-        st.warning(
-            f"**条件付き** — {_passed}/{_total}項目を達成。  \n{_recs}"
-        )
-    else:
-        st.error(
-            f"**未達** — {_passed}/{_total}項目のみ達成。"
-            f"残り{_days_left}日で改善が必要です。"
-        )
-with _verdict_cols[1]:
-    if st.button("今日の実行 →", use_container_width=True):
-        st.switch_page("pages/pipeline.py")
+with st.container(border=True):
+    _progress = (_passed / _total) if _total > 0 else 0.0
+    st.progress(min(1.0, max(0.0, _progress)))
+    st.caption(
+        f"Go/No-Go 達成率: {_passed}/{_total}  "
+        f"（判定期限: {_dm.GONOGO_DEADLINE} / 残り {_days_left}日）"
+    )
+
+    qs1, qs2, qs3, qs4 = st.columns(4)
+    qs1.metric("システム状態", _sys_label)
+    qs2.metric("勝率", fmt_pct(_wr, decimals=0),
+               delta=f"目標 {_targets['win_rate']:.0f}%", delta_color="off")
+    qs3.metric("累積損益", fmt_currency(_pnl_total, show_sign=True),
+               delta=fmt_delta(_pnl_total))
+    qs4.metric("運用日数", f"{kpi.get('days_running', 0)}日")
+
+    verdict_col, action_col = st.columns([5, 1])
+    with verdict_col:
+        if _v == "GO":
+            st.success(
+                f"**GO** — 全{_total}項目を達成。Phase 4（実取引）へ移行可能です。"
+            )
+        elif _v == "CONDITIONAL_GO":
+            _recs = " / ".join(verdict["recommendations"][:2])
+            st.warning(
+                f"**条件付き** — {_passed}/{_total}項目を達成。  \n{_recs}"
+            )
+        else:
+            st.error(
+                f"**未達** — {_passed}/{_total}項目のみ達成。"
+                f"残り{_days_left}日で改善が必要です。"
+            )
+    with action_col:
+        if st.button("今日の実行 →", use_container_width=True):
+            st.switch_page("pages/pipeline.py")
 
 # データ信頼度の注記
 _total_trades = kpi.get("total_trades", 0)
 _days_running = kpi.get("days_running", 0)
 if _total_trades < 20 and _days_running < 30:
     st.caption(
-        f"データ {_total_trades}件 / {_days_running}日間 "
-        f"— 統計的信頼性が低いため参考値です"
+        f"注記: データ {_total_trades}件 / {_days_running}日間のため、"
+        "統計的信頼性はまだ低めです。"
     )
 
 
 # ============================================================
 # 1. ポートフォリオ総額 + 保有銘柄
 # ============================================================
+
+section_header("ポートフォリオ概要", color=P, subtitle="総額・配分・保有銘柄")
 
 if alpaca_pf is not None:
     total_val = alpaca_pf["portfolio_value"]
@@ -236,6 +261,9 @@ else:
     total_val = cash_val = equity_val = 0
 
 if total_val > 0:
+    if alpaca_pf is None:
+        st.caption("Alpaca未接続のため、取引履歴と終値から推定した資産値を表示しています。")
+
     pnl = total_val - capital
     pnl_pct = pnl / capital * 100
 
@@ -324,7 +352,8 @@ else:
 # 2. 資産推移チャート
 # ============================================================
 
-section_header("資産推移", color=P)
+section_header("資産推移", color=P, subtitle="ポートフォリオ vs SPY")
+st.caption("買い/売りマーカーは約定日の位置を示します。")
 
 if len(daily) > 0:
     fig = go.Figure()
@@ -471,7 +500,7 @@ if len(daily) > 0:
             font=dict(size=11),
         ),
         font=dict(
-            family="Inter, -apple-system, BlinkMacSystemFont, sans-serif", size=12
+            family="Plus Jakarta Sans, Hiragino Kaku Gothic ProN, sans-serif", size=12
         ),
         plot_bgcolor="#fff",
         paper_bgcolor="#fff",
@@ -578,6 +607,24 @@ kpi_checks.append({
     "gap_sub": "" if up_ok else "システム安定性の改善が必要",
 })
 
+achieved_count = sum(1 for item in kpi_checks if item["ok"])
+pending_count = len(kpi_checks) - achieved_count
+
+sum_col1, sum_col2, sum_col3 = st.columns(3)
+sum_col1.metric("達成項目", f"{achieved_count}/{len(kpi_checks)}")
+sum_col2.metric("未達項目", f"{pending_count}")
+sum_col3.metric(
+    "総合判定",
+    {
+        "GO": "GO",
+        "CONDITIONAL_GO": "条件付き",
+        "NO_GO": "NO_GO",
+    }.get(_v, _v),
+)
+
+if verdict["recommendations"]:
+    st.caption(f"優先改善: {' / '.join(verdict['recommendations'][:3])}")
+
 with st.container(border=True):
     for item in kpi_checks:
         col_label, col_bar, col_gap = st.columns([2, 4, 2])
@@ -611,11 +658,26 @@ with st.container(border=True):
 # ============================================================
 
 section_header("取引履歴", color=W)
+st.caption("直近5件を先に表示し、残りは折りたたみで確認できます。")
 
 if len(trades) > 0:
-    trades_sorted = trades.sort_values("entry_timestamp", ascending=False)
+    trades_sorted_all = trades.sort_values("entry_timestamp", ascending=False)
 
-    closed_trades = trades_sorted[trades_sorted["status"] == "CLOSED"]
+    view_mode = st.radio(
+        "表示対象",
+        ["すべて", "決済済み", "保有中"],
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+
+    if view_mode == "決済済み":
+        trades_sorted = trades_sorted_all[trades_sorted_all["status"] == "CLOSED"]
+    elif view_mode == "保有中":
+        trades_sorted = trades_sorted_all[trades_sorted_all["status"] == "OPEN"]
+    else:
+        trades_sorted = trades_sorted_all
+
+    closed_trades = trades_sorted_all[trades_sorted_all["status"] == "CLOSED"]
     best_id = None
     worst_id = None
     if len(closed_trades) > 0:
@@ -637,83 +699,91 @@ if len(trades) > 0:
         sm4.metric("平均損益/回", fmt_currency(avg_pnl, show_sign=True),
                    delta_color="normal" if avg_pnl >= 0 else "inverse")
 
-    # 直近5件 + 残りはexpander
-    _show_limit = 5
-    _trades_list = list(trades_sorted.iterrows())
-    _visible = _trades_list[:_show_limit]
-    _hidden = _trades_list[_show_limit:]
+    if len(trades_sorted) == 0:
+        st.info(f"{view_mode}に該当する取引はありません。")
+    else:
+        # 直近5件 + 残りはexpander
+        _show_limit = 5
+        _trades_list = list(trades_sorted.iterrows())
+        _visible = _trades_list[:_show_limit]
+        _hidden = _trades_list[_show_limit:]
 
-    def _render_trade_card(t, best_id, worst_id):
-        ticker = t["ticker"]
-        shares = int(t["shares"])
+        def _render_trade_card(t, best_id, worst_id):
+            ticker = t["ticker"]
+            shares = int(t["shares"])
 
-        if t["status"] == "CLOSED":
-            pnl_val = t["profit_loss"] or 0
-            pct_val = t["profit_loss_pct"] or 0
+            if t["status"] == "CLOSED":
+                pnl_val = t["profit_loss"] or 0
+                pct_val = t["profit_loss_pct"] or 0
 
-            # ラベル決定
-            if t["id"] == best_id and pnl_val > 0:
-                label = "BEST"
-            elif t["id"] == worst_id and pnl_val < 0:
-                label = "WORST"
-            else:
-                label = "WIN" if pnl_val >= 0 else "LOSS"
+                # ラベル決定
+                if t["id"] == best_id and pnl_val > 0:
+                    label = "BEST"
+                elif t["id"] == worst_id and pnl_val < 0:
+                    label = "WORST"
+                else:
+                    label = "WIN" if pnl_val >= 0 else "LOSS"
+                label_color = {
+                    "BEST": "#f59e0b",
+                    "WORST": "#7c3aed",
+                    "WIN": W,
+                    "LOSS": L,
+                }.get(label, P)
+                label_pill = render_pill(label, label_color)
 
-            hd = t.get("holding_days")
-            hd_str = f" · {int(hd)}日保有" if pd.notna(hd) and hd else ""
+                hd = t.get("holding_days")
+                hd_str = f" · {int(hd)}日保有" if pd.notna(hd) and hd else ""
 
-            ed = (t["entry_timestamp"][:10]
-                  if pd.notna(t.get("entry_timestamp")) else "")
-            xd = (t["exit_timestamp"][:10]
-                  if pd.notna(t.get("exit_timestamp")) else "")
+                ed = (t["entry_timestamp"][:10]
+                      if pd.notna(t.get("entry_timestamp")) else "")
+                xd = (t["exit_timestamp"][:10]
+                      if pd.notna(t.get("exit_timestamp")) else "")
 
-            pnl_color = "green" if pnl_val >= 0 else "red"
-            border_color = W if pnl_val >= 0 else L
-            if label == "BEST":
-                border_color = "#f59e0b"
-            elif label == "WORST":
-                border_color = "#7c3aed"
+                pnl_color = "green" if pnl_val >= 0 else "red"
 
-            with st.container(border=True):
-                col_info, col_result = st.columns([4, 2])
-                with col_info:
-                    st.markdown(
-                        f"**{ticker}**  "
-                        f'<span style="color:#94a3b8;font-size:0.82rem">'
-                        f"{shares}株 · "
-                        f"${t['entry_price']:.2f} → ${t['exit_price']:.2f} · "
-                        f"{ed} → {xd}{hd_str}</span>",
-                        unsafe_allow_html=True,
-                    )
-                with col_result:
-                    st.markdown(
-                        f":{pnl_color}[**{fmt_currency(pnl_val, show_sign=True)}** "
-                        f"({fmt_pct(pct_val, show_sign=True)})]"
-                    )
+                with st.container(border=True):
+                    col_info, col_result = st.columns([4, 2])
+                    with col_info:
+                        st.markdown(
+                            f"**{ticker}** {label_pill}  "
+                            f'<span style="color:#94a3b8;font-size:0.82rem">'
+                            f"{shares}株 · "
+                            f"${t['entry_price']:.2f} → ${t['exit_price']:.2f} · "
+                            f"{ed} → {xd}{hd_str}</span>",
+                            unsafe_allow_html=True,
+                        )
+                    with col_result:
+                        st.markdown(
+                            f":{pnl_color}[**{fmt_currency(pnl_val, show_sign=True)}** "
+                            f"({fmt_pct(pct_val, show_sign=True)})]"
+                        )
 
-        elif t["status"] == "OPEN":
-            ed = (t["entry_timestamp"][:10]
-                  if pd.notna(t.get("entry_timestamp")) else "")
+            elif t["status"] == "OPEN":
+                ed = (t["entry_timestamp"][:10]
+                      if pd.notna(t.get("entry_timestamp")) else "")
+                open_pill = render_pill("OPEN", P)
 
-            with st.container(border=True):
-                col_info, col_result = st.columns([4, 2])
-                with col_info:
-                    st.markdown(
-                        f"**{ticker}**  "
-                        f'<span style="color:#94a3b8;font-size:0.82rem">'
-                        f"{shares}株 @ ${t['entry_price']:.2f} · {ed}〜</span>",
-                        unsafe_allow_html=True,
-                    )
-                with col_result:
-                    st.markdown(":blue[**保有中**]")
+                with st.container(border=True):
+                    col_info, col_result = st.columns([4, 2])
+                    with col_info:
+                        st.markdown(
+                            f"**{ticker}** {open_pill}  "
+                            f'<span style="color:#94a3b8;font-size:0.82rem">'
+                            f"{shares}株 @ ${t['entry_price']:.2f} · {ed}〜</span>",
+                            unsafe_allow_html=True,
+                        )
+                    with col_result:
+                        st.markdown(":blue[**保有中**]")
 
-    for _, t in _visible:
-        _render_trade_card(t, best_id, worst_id)
+        for _, t in _visible:
+            _render_trade_card(t, best_id, worst_id)
 
-    if _hidden:
-        with st.expander(f"過去の取引をすべて表示（残り{len(_hidden)}件）",
-                         expanded=False):
-            for _, t in _hidden:
-                _render_trade_card(t, best_id, worst_id)
+        if _hidden:
+            with st.expander(
+                f"過去の取引をすべて表示（残り{len(_hidden)}件）",
+                expanded=False,
+            ):
+                for _, t in _hidden:
+                    _render_trade_card(t, best_id, worst_id)
 else:
     st.info("まだ取引がありません")

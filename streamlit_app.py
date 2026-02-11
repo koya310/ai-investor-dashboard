@@ -6,7 +6,6 @@ from datetime import datetime
 import dashboard_data as _dm
 import streamlit as st
 
-from components.shared import W, L, fmt_currency, fmt_pct, color_for_value
 from components.styles import inject_css
 
 logger = logging.getLogger(__name__)
@@ -36,13 +35,21 @@ nav = st.navigation(
 # ── サイドバー ──
 with st.sidebar:
     st.markdown("### AI Investor")
-    st.caption("Phase 3 ペーパートレード")
+    st.caption("Phase 3 ペーパートレード運用ダッシュボード")
 
     # Go/No-Go カウントダウン
     deadline_dt = datetime.strptime(_dm.GONOGO_DEADLINE, "%Y-%m-%d")
     days_left = max((deadline_dt - datetime.now()).days, 0)
-    st.metric("Go/No-Go 判定まで", f"{days_left}日",
-              delta=f"期限: {_dm.GONOGO_DEADLINE}", delta_color="off")
+    st.metric(
+        "Go/No-Go 判定まで",
+        f"{days_left}日",
+        delta=f"期限: {_dm.GONOGO_DEADLINE}",
+        delta_color="off",
+    )
+
+    if st.button("データを再読込", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
 
     # システム状態
     last_run = _dm.get_last_system_run()
@@ -58,6 +65,16 @@ with st.sidebar:
                 st.caption(last_run["error_message"][:100])
     else:
         st.info("実行記録なし")
+
+    with st.expander("使い方", expanded=False):
+        st.markdown(
+            """
+            1. `ポートフォリオ` で Go/No-Go 判定と資産推移を確認
+            2. `パイプライン` で本日の実行ステップと異常有無を確認
+            3. `日付詳細` で特定日のニュース〜取引まで追跡
+            4. `システム仕様` で計算式・判定条件を参照
+            """
+        )
 
     st.divider()
     st.caption(f"Phase 3 開始: {_dm.PHASE3_START}")

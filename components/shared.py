@@ -72,16 +72,24 @@ def color_for_status(status: str) -> str:
 
 
 def section_header(title: str, color: str = P, subtitle: str = "") -> None:
-    """セクション見出し（Tier 2: ネイティブ + 最小CSS）"""
-    sub = f"  —  {subtitle}" if subtitle else ""
+    """Section header with clean spacing and modern accent."""
+    subtitle_html = (
+        f'<span style="font-size:0.7rem;font-weight:600;color:#64748b;'
+        f'background:#f8fafc;border:1px solid #e8edf5;border-radius:9999px;'
+        f'padding:0.2rem 0.55rem">{subtitle}</span>'
+        if subtitle
+        else ""
+    )
     st.markdown(
-        f'<div style="display:flex;align-items:center;gap:0.5rem;'
-        f'margin:1.2rem 0 0.5rem">'
-        f'<div style="width:4px;height:1.4rem;border-radius:2px;'
-        f'background:{color}"></div>'
-        f'<span style="font-size:0.92rem;font-weight:700;color:#0f172a">'
-        f"{title}</span>"
-        f'<span style="font-size:0.72rem;color:#94a3b8">{sub}</span>'
+        f'<div style="display:flex;align-items:center;justify-content:space-between;'
+        f'gap:0.8rem;margin:1.35rem 0 0.65rem">'
+        f'<div style="display:flex;align-items:center;gap:0.55rem">'
+        f'<span style="width:10px;height:10px;border-radius:9999px;'
+        f'background:{color};box-shadow:0 0 0 4px {color}22"></span>'
+        f'<span style="font-size:1.0rem;font-weight:760;color:#0f172a;'
+        f'letter-spacing:-0.02em">{title}</span>'
+        f"</div>"
+        f"{subtitle_html}"
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -90,10 +98,12 @@ def section_header(title: str, color: str = P, subtitle: str = "") -> None:
 def render_pill(label: str, color: str = P) -> str:
     """インライン小バッジ（HTML文字列を返す）"""
     return (
-        f'<span style="display:inline-block;font-size:0.6rem;font-weight:600;'
-        f"color:{color};background:{color}14;border:1px solid {color}33;"
-        f'padding:0.08rem 0.4rem;border-radius:9999px;'
-        f'vertical-align:middle">{label}</span>'
+        f'<span style="display:inline-flex;align-items:center;gap:0.28rem;'
+        f'font-size:0.64rem;font-weight:700;color:{color};'
+        f'background:{color}14;border:1px solid {color}30;'
+        f'padding:0.16rem 0.5rem;border-radius:9999px;vertical-align:middle">'
+        f'<span style="width:5px;height:5px;border-radius:9999px;'
+        f'background:{color};display:inline-block"></span>{label}</span>'
     )
 
 
