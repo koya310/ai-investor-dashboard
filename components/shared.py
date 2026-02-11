@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 # ── カラーパレット ──
 P = "#2563eb"  # primary blue
-W = "#059669"  # win emerald
-L = "#e11d48"  # loss rose
+W = "#059669"  # win emerald (positive)
+L = "#dc2626"  # loss red (negative) — was #e11d48, now standard red
 
 # ── 曜日 ──
 WEEKDAY_JP = ["月", "火", "水", "木", "金", "土", "日"]
@@ -71,21 +71,43 @@ def color_for_status(status: str) -> str:
     return status_colors.get(status, "#94a3b8")
 
 
+# ── UI コンポーネント ──
+
+
+def card_title(title: str, color: str = P, subtitle: str = "") -> None:
+    """Card title — MUST be called INSIDE st.container(border=True)."""
+    subtitle_html = (
+        f'<span class="card-subtitle">{subtitle}</span>' if subtitle else ""
+    )
+    st.markdown(
+        f'<div class="card-title">'
+        f'<span class="accent-dot" style="background:{color}"></span>'
+        f'<span class="card-title-text">{title}</span>'
+        f"{subtitle_html}"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
 def section_header(title: str, color: str = P, subtitle: str = "") -> None:
-    """Clean section header — title left, optional subtitle right."""
-    sub = (
-        f'<span style="font-size:0.68rem;font-weight:600;color:#6b7280;'
-        f'background:#f3f4f6;padding:0.18rem 0.55rem;'
-        f'border-radius:6px">{subtitle}</span>'
+    """Legacy section header — kept for backward compat but prefer card_title."""
+    subtitle_html = (
+        f'<span style="font-size:0.7rem;font-weight:600;color:#64748b;'
+        f'background:#f8fafc;border:1px solid #e8edf5;border-radius:9999px;'
+        f'padding:0.2rem 0.55rem">{subtitle}</span>'
         if subtitle
         else ""
     )
     st.markdown(
-        f'<div style="display:flex;align-items:baseline;justify-content:space-between;'
-        f'margin:1.5rem 0 0.6rem">'
-        f'<span style="font-size:0.95rem;font-weight:700;color:#1a1d26;'
-        f'letter-spacing:-0.01em">{title}</span>'
-        f"{sub}"
+        f'<div style="display:flex;align-items:center;justify-content:space-between;'
+        f'gap:0.8rem;margin:1.35rem 0 0.65rem">'
+        f'<div style="display:flex;align-items:center;gap:0.55rem">'
+        f'<span style="width:10px;height:10px;border-radius:9999px;'
+        f'background:{color};box-shadow:0 0 0 4px {color}22"></span>'
+        f'<span style="font-size:1.0rem;font-weight:760;color:#0f172a;'
+        f'letter-spacing:-0.02em">{title}</span>'
+        f"</div>"
+        f"{subtitle_html}"
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -95,17 +117,51 @@ def render_pill(label: str, color: str = P) -> str:
     """インライン小バッジ（HTML文字列を返す）"""
     return (
         f'<span style="display:inline-flex;align-items:center;gap:0.28rem;'
-        f'font-size:0.64rem;font-weight:700;color:{color};'
+        f'font-size:0.72rem;font-weight:600;color:{color};'
         f'background:{color}14;border:1px solid {color}30;'
-        f'padding:0.16rem 0.5rem;border-radius:9999px;vertical-align:middle">'
-        f'<span style="width:5px;height:5px;border-radius:9999px;'
+        f'padding:0.15rem 0.55rem;border-radius:9999px;vertical-align:middle">'
+        f'<span style="width:6px;height:6px;border-radius:9999px;'
         f'background:{color};display:inline-block"></span>{label}</span>'
     )
 
 
-def nav_back(label: str, page: str) -> None:
-    """ページ上部の戻るリンク"""
-    st.page_link(page, label=label)
+def status_dot_html(status: str) -> str:
+    """CSS status dot (Linear-style). Returns raw HTML."""
+    css_class = {
+        "completed": "status-dot--ok",
+        "ok": "status-dot--ok",
+        "failed": "status-dot--fail",
+        "error": "status-dot--fail",
+        "warn": "status-dot--warn",
+        "skipped": "status-dot--warn",
+        "interrupted": "status-dot--warn",
+        "running": "status-dot--active",
+        "pending": "status-dot--none",
+    }.get(status, "status-dot--none")
+    return f'<span class="status-dot {css_class}"></span>'
+
+
+def status_badge(label: str, status: str) -> str:
+    """Status badge (dot + label pill). Returns raw HTML."""
+    configs = {
+        "completed": ("#059669", "#ecfdf5", "#d1fae5"),
+        "ok":        ("#059669", "#ecfdf5", "#d1fae5"),
+        "failed":    ("#dc2626", "#fef2f2", "#fecaca"),
+        "error":     ("#dc2626", "#fef2f2", "#fecaca"),
+        "skipped":   ("#d97706", "#fffbeb", "#fef3c7"),
+        "interrupted": ("#d97706", "#fffbeb", "#fef3c7"),
+        "warn":      ("#d97706", "#fffbeb", "#fef3c7"),
+        "pending":   ("#64748b", "#f8fafc", "#e2e8f0"),
+        "running":   ("#2563eb", "#eff6ff", "#bfdbfe"),
+    }
+    text_c, bg_c, border_c = configs.get(status, configs["pending"])
+    return (
+        f'<span style="display:inline-flex;align-items:center;gap:0.3rem;'
+        f'font-size:0.72rem;font-weight:600;color:{text_c};'
+        f'background:{bg_c};border:1px solid {border_c};'
+        f'padding:0.15rem 0.55rem;border-radius:9999px">'
+        f'{status_dot_html(status)} {label}</span>'
+    )
 
 
 # ── キャッシュ付きデータ読み込み ──
