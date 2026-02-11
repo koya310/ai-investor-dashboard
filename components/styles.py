@@ -12,8 +12,6 @@ def inject_css():
 :root {
     --bg: #f3f5f9;
     --card: #ffffff;
-    --border: #e7ecf4;
-    --border-subtle: #f0f3f8;
     --text: #0f172a;
     --muted: #64748b;
     --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
@@ -50,43 +48,60 @@ h1, h2, h3 {
     padding-top: 1.1rem;
 }
 
-/* ── All containers with border → white card ── */
-[data-testid="stVerticalBlockBorderWrapper"] {
+/* ══════════════════════════════════════════════════════════════
+   NUCLEAR BORDER REMOVAL
+   Streamlit puts borders on CHILD divs via inline styles.
+   We must target both the wrapper AND its > div child.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Container cards: white card with shadow ── */
+[data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stVerticalBlockBorderWrapper"] > div {
     background: var(--card) !important;
     border: none !important;
     border-radius: 16px !important;
-    padding: 0.9rem 1rem !important;
     box-shadow: var(--shadow-md) !important;
 }
 
-/* Nested cards (card inside card) → no border, no shadow */
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"] {
-    background: var(--card) !important;
+[data-testid="stVerticalBlockBorderWrapper"] {
+    padding: 0.9rem 1rem !important;
+}
+
+/* Nested cards: no shadow, no border */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"] > div {
     border: none !important;
-    border-radius: 12px !important;
-    padding: 0.7rem 0.85rem !important;
     box-shadow: none !important;
+    border-radius: 12px !important;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"] {
+    padding: 0.7rem 0.85rem !important;
 }
 
 [data-testid="stVerticalBlockBorderWrapper"] hr {
     margin: 0.4rem 0;
-    border-color: var(--border-subtle);
+    border-color: #f0f3f8;
 }
 
 /* ── Metrics ── */
 /* Standalone metric → white card */
-[data-testid="stMetric"] {
-    background: var(--card);
-    border: none;
-    border-radius: 14px;
-    padding: 0.85rem 0.95rem;
-    box-shadow: var(--shadow-sm);
+[data-testid="stMetric"],
+[data-testid="stMetric"] > div {
+    background: var(--card) !important;
+    border: none !important;
+    border-radius: 14px !important;
+    box-shadow: var(--shadow-sm) !important;
 }
 
-/* Metrics inside cards → flush (no double card) — nuclear override */
+[data-testid="stMetric"] {
+    padding: 0.85rem 0.95rem !important;
+}
+
+/* Metrics inside cards → flush (no double card) */
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"],
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"] *,
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"] > div,
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"] *,
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetricLabel"],
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetricValue"],
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetricDelta"] {
@@ -119,12 +134,13 @@ h1, h2, h3 {
     font-size: 0.74rem;
 }
 
-/* ── Expanders → white card style, no border ── */
-[data-testid="stExpander"] {
-    border: none;
-    border-radius: 14px;
-    background: var(--card);
-    box-shadow: var(--shadow-sm);
+/* ── Expanders → white card, no border ── */
+[data-testid="stExpander"],
+[data-testid="stExpander"] > div {
+    border: none !important;
+    border-radius: 14px !important;
+    background: var(--card) !important;
+    box-shadow: var(--shadow-sm) !important;
 }
 
 details summary {
@@ -133,14 +149,14 @@ details summary {
     color: #334155;
 }
 
-/* ── Tabs → pill style ── */
+/* ── Tabs → pill style (border is intentional here for tab shape) ── */
 [data-testid="stTabs"] [role="tablist"] {
     gap: 0.45rem;
 }
 
 [data-testid="stTabs"] [role="tab"] {
     background: var(--card);
-    border: 1px solid var(--border);
+    border: 1px solid #e7ecf4;
     border-radius: 9999px;
     padding: 0.35rem 0.8rem;
 }
@@ -185,7 +201,7 @@ details summary {
     font-size: 0.82rem;
     font-weight: 700;
     color: var(--text);
-    border-bottom: 2px solid var(--border);
+    border-bottom: 2px solid #e7ecf4;
     padding-bottom: 0.3rem;
     margin: 1rem 0 0.5rem;
 }
@@ -195,7 +211,7 @@ details summary {
     justify-content: space-between;
     padding: 0.25rem 0;
     font-size: 0.8rem;
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid #f0f3f8;
 }
 
 .dlg-key { color: var(--muted); }
