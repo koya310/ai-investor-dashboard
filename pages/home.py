@@ -488,7 +488,7 @@ with st.container(border=True):
                 font=dict(size=11),
             ),
             font=dict(
-                family="Plus Jakarta Sans, Hiragino Kaku Gothic ProN, sans-serif",
+                family="Inter, Hiragino Kaku Gothic ProN, sans-serif",
                 size=12,
             ),
             plot_bgcolor="#fff",

@@ -1,8 +1,6 @@
 [theme]
 primaryColor = "#2563eb"
-backgroundColor = "#f3f5f9"
+backgroundColor = "#f8f9fc"
 secondaryBackgroundColor = "#ffffff"
-textColor = "#0f172a"
-
-# Kill ALL Streamlit default borders at theme level
+textColor = "#1a1d26"
 borderColor = "transparent"

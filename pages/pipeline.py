@@ -273,7 +273,7 @@ with st.expander("ニュース・分析活用（直近14日）", expanded=False)
             yaxis=dict(showgrid=True, gridcolor="#f1f5f9", tickfont_size=10),
             barmode="group", bargap=0.3,
             font=dict(
-                family="Plus Jakarta Sans, Hiragino Kaku Gothic ProN, sans-serif",
+                family="Inter, Hiragino Kaku Gothic ProN, sans-serif",
                 size=11,
             ),
         )

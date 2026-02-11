@@ -1,65 +1,70 @@
-"""Card-first UI styles for a clean finance dashboard."""
+"""Finazch-inspired card UI styles — flat background + white card system."""
 
 import streamlit as st
 
 
 def inject_css():
-    """Inject modern card-based styling — white cards, no borders, shadow only."""
+    """Inject clean card-based styling inspired by modern finance dashboards."""
     st.markdown(
         """<style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --bg: #f3f5f9;
+    --bg: #f8f9fc;
     --card: #ffffff;
-    --text: #0f172a;
-    --muted: #64748b;
-    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 5px rgba(15, 23, 42, 0.03);
-    --shadow-md: 0 2px 8px rgba(15, 23, 42, 0.05), 0 4px 20px rgba(15, 23, 42, 0.04);
-    --radius-lg: 16px;
-    --radius-md: 12px;
+    --text: #1a1d26;
+    --text-secondary: #6b7280;
+    --text-muted: #9ca3af;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.04), 0 2px 12px rgba(0,0,0,0.03);
+    --shadow-card-hover: 0 4px 16px rgba(0,0,0,0.06);
+    --radius: 14px;
     --radius-sm: 10px;
 }
 
-/* ── Typography ── */
+/* ── Base ── */
 html, body, [class*="css"] {
-    font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont,
+    font-family: "Inter", -apple-system, BlinkMacSystemFont,
                  "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    -webkit-font-smoothing: antialiased;
 }
 
 .stApp {
-    background:
-        radial-gradient(ellipse 1100px 400px at 92% -8%, rgba(37, 99, 235, 0.06), transparent 60%),
-        radial-gradient(ellipse 900px 300px at -5% 4%, rgba(5, 150, 105, 0.04), transparent 55%),
-        var(--bg);
+    background: var(--bg);
     color: var(--text);
 }
 
 .block-container {
-    padding-top: 2rem;
-    padding-bottom: 2.5rem;
-    max-width: 1120px;
+    padding: 2rem 2rem 3rem;
+    max-width: 1100px;
 }
 
-h1 { font-size: 1.65rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.3rem; }
-h2 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; }
-h3 { font-size: 1.0rem; font-weight: 700; letter-spacing: -0.01em; }
+/* ── Typography ── */
+h1 {
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    margin-bottom: 0.15rem;
+}
+h2 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em; }
+h3 { font-size: 0.95rem; font-weight: 700; }
 
 /* ── Sidebar ── */
 [data-testid="stSidebar"] {
-    border-right: 1px solid rgba(231, 236, 244, 0.7) !important;
+    background: var(--card) !important;
+    border-right: none !important;
+    box-shadow: 1px 0 8px rgba(0,0,0,0.03);
 }
 [data-testid="stSidebar"] .block-container {
-    padding-top: 1.1rem;
+    padding-top: 1.25rem;
 }
 
 /* ══════════════════════════════════════════════════════════════
-   BORDER REMOVAL — config.toml sets borderColor=transparent
-   globally. These rules add card styling (bg + shadow + radius)
-   and fix any remaining border via correct selectors.
+   CARD SYSTEM — config.toml borderColor=transparent kills all
+   Streamlit borders. CSS adds card styling (bg + shadow).
+   Also target stVerticalBlock for belt-and-suspenders.
    ══════════════════════════════════════════════════════════════ */
 
-/* Belt-and-suspenders: also kill borders on the correct element */
 div[data-testid="stVerticalBlock"],
 div[data-testid="stMetric"],
 div[data-testid="stExpander"],
@@ -68,159 +73,173 @@ div[data-testid="stForm"] {
     border-color: transparent !important;
 }
 
-/* ── Top-level cards: white + shadow ── */
+/* ── Cards (st.container border=True) ── */
 [data-testid="stVerticalBlockBorderWrapper"] {
     background: var(--card);
-    border-radius: var(--radius-lg);
-    padding: 1rem 1.15rem;
-    box-shadow: var(--shadow-md);
-    margin-bottom: 0.3rem;
+    border-radius: var(--radius);
+    padding: 1.1rem 1.25rem;
+    box-shadow: var(--shadow-card);
+    margin-bottom: 0.5rem;
+    transition: box-shadow 0.2s ease;
 }
 
-/* Nested cards: subtle elevation, no outer shadow */
+/* Nested cards — flat, no shadow, just a bit of spacing */
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"] {
     background: var(--card);
-    border-radius: var(--radius-md);
-    padding: 0.75rem 0.9rem;
+    border-radius: var(--radius-sm);
+    padding: 0.8rem 1rem;
     box-shadow: none;
+    margin-bottom: 0.25rem;
 }
 
 [data-testid="stVerticalBlockBorderWrapper"] hr {
-    margin: 0.4rem 0;
-    border-color: #eef1f6;
-    opacity: 0.7;
+    margin: 0.5rem 0;
+    border-color: #f0f1f5;
 }
 
 /* ── Metrics ── */
-/* Standalone metric */
 [data-testid="stMetric"] {
     background: var(--card);
-    border-radius: var(--radius-md);
-    padding: 0.75rem 0.85rem;
-    box-shadow: var(--shadow-sm);
+    border-radius: var(--radius-sm);
+    padding: 0.8rem 0.9rem;
+    box-shadow: var(--shadow-card);
 }
 
-/* Metrics inside cards → flush, no double-card */
+/* Metrics inside cards — no card effect, just clean text */
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"] {
     background: transparent !important;
     border-radius: 0 !important;
-    padding: 0.4rem 0.15rem !important;
+    padding: 0.35rem 0.1rem !important;
     box-shadow: none !important;
 }
 
 [data-testid="stMetricLabel"] p {
-    color: var(--muted);
-    font-size: 0.66rem;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
 }
 
 [data-testid="stMetricValue"] > div {
-    font-size: 1.35rem;
-    font-weight: 800;
+    font-size: 1.4rem;
+    font-weight: 700;
     letter-spacing: -0.02em;
-    line-height: 1.2;
+    line-height: 1.25;
+    color: var(--text);
 }
 
 [data-testid="stMetricDelta"] {
     font-size: 0.72rem;
+    font-weight: 500;
 }
 
 /* ── Expanders ── */
 [data-testid="stExpander"] {
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     background: var(--card);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-card);
 }
-
 details summary {
-    font-size: 0.84rem;
-    font-weight: 700;
-    color: #334155;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
 }
 
-/* ── Tabs → pill ── */
+/* ── Tabs ── */
 [data-testid="stTabs"] [role="tablist"] {
-    gap: 0.4rem;
+    gap: 0.35rem;
+    border-bottom: none;
 }
 [data-testid="stTabs"] [role="tab"] {
-    background: var(--card);
-    border: 1px solid #dfe5ef !important;
-    border-radius: 9999px;
-    padding: 0.32rem 0.75rem;
+    background: transparent;
+    border: none !important;
+    border-radius: 8px;
+    padding: 0.4rem 0.85rem;
     font-size: 0.82rem;
     font-weight: 600;
+    color: var(--text-secondary);
+    transition: all 0.15s ease;
+}
+[data-testid="stTabs"] [role="tab"]:hover {
+    background: #f0f1f5;
+    color: var(--text);
 }
 [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
-    border-color: #bfdbfe !important;
-    background: #eff6ff;
-    color: #1d4ed8;
-}
-
-/* ── Dialogs ── */
-[data-testid="stDialog"] {
-    min-width: 760px;
-    border-radius: 20px;
+    background: #eef2ff;
+    color: #4f46e5;
 }
 
 /* ── Buttons ── */
 .stButton > button {
     border-radius: var(--radius-sm);
-    border: 1px solid #dce3ee !important;
+    border: 1px solid #e5e7eb !important;
     background: var(--card);
     color: var(--text);
     font-weight: 600;
     font-size: 0.84rem;
-    padding: 0.4rem 1rem;
+    padding: 0.45rem 1.1rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
     transition: all 0.15s ease;
 }
 .stButton > button:hover {
-    border-color: #c4d0e3 !important;
-    box-shadow: 0 3px 12px rgba(37, 99, 235, 0.1);
+    border-color: #d1d5db !important;
+    box-shadow: var(--shadow-card-hover);
     transform: translateY(-1px);
 }
 .stButton > button:active {
     transform: translateY(0);
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 
 /* ── DataFrames ── */
 [data-testid="stDataFrame"] {
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     overflow: hidden;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-card);
 }
 
-/* ── Alert boxes ── */
+/* ── Dialogs ── */
+[data-testid="stDialog"] {
+    min-width: 760px;
+    border-radius: 16px;
+}
+
+/* ── Alerts ── */
 [data-testid="stAlert"] {
     border-radius: var(--radius-sm);
     font-size: 0.84rem;
+    border-left-width: 3px;
 }
 
 /* ── Progress bars ── */
 [data-testid="stProgress"] > div > div {
-    border-radius: 6px;
+    border-radius: 8px;
     height: 6px;
-}
-
-/* ── Radio / toggle group ── */
-[data-testid="stRadio"] > div {
-    gap: 0.4rem;
 }
 
 /* ── Captions ── */
 [data-testid="stCaptionContainer"] {
     font-size: 0.76rem;
-    color: #94a3b8;
+    color: var(--text-muted);
 }
 
-/* ── Dialog-only helper classes (Tier 3) ── */
+/* ── Page links ── */
+[data-testid="stPageLink"] a {
+    color: var(--text-secondary) !important;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+[data-testid="stPageLink"] a:hover {
+    color: var(--text) !important;
+}
+
+/* ── Dialog-only helper classes ── */
 .dlg-section {
     font-size: 0.82rem;
     font-weight: 700;
     color: var(--text);
-    border-bottom: 2px solid #e7ecf4;
+    border-bottom: 2px solid #f0f1f5;
     padding-bottom: 0.3rem;
     margin: 1rem 0 0.5rem;
 }
@@ -229,9 +248,9 @@ details summary {
     justify-content: space-between;
     padding: 0.25rem 0;
     font-size: 0.8rem;
-    border-bottom: 1px solid #f0f3f8;
+    border-bottom: 1px solid #f7f8fa;
 }
-.dlg-key { color: var(--muted); }
+.dlg-key { color: var(--text-secondary); }
 .dlg-val { font-weight: 600; color: var(--text); }
 .dlg-insight {
     background: #fffbeb;
@@ -243,7 +262,7 @@ details summary {
     color: #92400e;
 }
 .c-pos { color: #059669; }
-.c-neg { color: #e11d48; }
+.c-neg { color: #ef4444; }
 </style>""",
         unsafe_allow_html=True,
     )

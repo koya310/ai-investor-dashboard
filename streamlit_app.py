@@ -34,8 +34,14 @@ nav = st.navigation(
 
 # ── サイドバー ──
 with st.sidebar:
-    st.markdown("### AI Investor")
-    st.caption("Phase 3 Monitor")
+    st.markdown(
+        '<div style="font-size:1.1rem;font-weight:800;letter-spacing:-0.02em;'
+        'color:#1a1d26;margin-bottom:0.1rem">AI Investor</div>',
+        unsafe_allow_html=True,
+    )
+    st.caption("Phase 3 ペーパートレード監視")
+
+    st.divider()
 
     # Go/No-Go カウントダウン
     deadline_dt = datetime.strptime(_dm.GONOGO_DEADLINE, "%Y-%m-%d")
@@ -46,10 +52,6 @@ with st.sidebar:
         delta=f"期限: {_dm.GONOGO_DEADLINE}",
         delta_color="off",
     )
-
-    if st.button("データを再読込", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
 
     # システム状態
     last_run = _dm.get_last_system_run()
@@ -67,6 +69,9 @@ with st.sidebar:
         st.info("実行記録なし")
 
     st.divider()
-    st.caption(f"最新判定期限: {_dm.GONOGO_DEADLINE}")
+
+    if st.button("データを再読込", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
 
 nav.run()

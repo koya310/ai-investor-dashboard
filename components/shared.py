@@ -72,24 +72,20 @@ def color_for_status(status: str) -> str:
 
 
 def section_header(title: str, color: str = P, subtitle: str = "") -> None:
-    """Section header with clean spacing and modern accent."""
-    subtitle_html = (
-        f'<span style="font-size:0.7rem;font-weight:600;color:#475569;'
-        f'background:#e8edf5;border:1px solid #d4dce8;border-radius:9999px;'
-        f'padding:0.2rem 0.55rem">{subtitle}</span>'
+    """Clean section header — title left, optional subtitle right."""
+    sub = (
+        f'<span style="font-size:0.68rem;font-weight:600;color:#6b7280;'
+        f'background:#f3f4f6;padding:0.18rem 0.55rem;'
+        f'border-radius:6px">{subtitle}</span>'
         if subtitle
         else ""
     )
     st.markdown(
-        f'<div style="display:flex;align-items:center;justify-content:space-between;'
-        f'gap:0.8rem;margin:1.35rem 0 0.65rem">'
-        f'<div style="display:flex;align-items:center;gap:0.55rem">'
-        f'<span style="width:10px;height:10px;border-radius:9999px;'
-        f'background:{color};box-shadow:0 0 0 4px {color}22"></span>'
-        f'<span style="font-size:1.0rem;font-weight:760;color:#0f172a;'
-        f'letter-spacing:-0.02em">{title}</span>'
-        f"</div>"
-        f"{subtitle_html}"
+        f'<div style="display:flex;align-items:baseline;justify-content:space-between;'
+        f'margin:1.5rem 0 0.6rem">'
+        f'<span style="font-size:0.95rem;font-weight:700;color:#1a1d26;'
+        f'letter-spacing:-0.01em">{title}</span>'
+        f"{sub}"
         f"</div>",
         unsafe_allow_html=True,
     )
