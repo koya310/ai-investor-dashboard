@@ -109,7 +109,7 @@ def render_pill(label: str, color: str = P) -> str:
 
 def nav_back(label: str, page: str) -> None:
     """ページ上部の戻るボタン"""
-    if st.button(label, type="tertiary"):
+    if st.button(label):
         st.switch_page(page)
 
 

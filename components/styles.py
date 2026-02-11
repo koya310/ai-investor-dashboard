@@ -4,20 +4,20 @@ import streamlit as st
 
 
 def inject_css():
-    """Inject modern card-based styling."""
+    """Inject modern card-based styling — white cards only, no grey borders."""
     st.markdown(
         """<style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
     --bg: #f3f5f9;
-    --bg-accent: #edf2ff;
     --card: #ffffff;
     --border: #e7ecf4;
+    --border-subtle: #f0f3f8;
     --text: #0f172a;
     --muted: #64748b;
-    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-    --shadow-md: 0 10px 28px rgba(15, 23, 42, 0.07);
+    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+    --shadow-md: 0 4px 20px rgba(15, 23, 42, 0.06);
 }
 
 html, body, [class*="css"] {
@@ -50,16 +50,40 @@ h1, h2, h3 {
     padding-top: 1.1rem;
 }
 
-/* Standalone metric cards (top-level only) */
+/* ── All containers with border → white card ── */
+[data-testid="stVerticalBlockBorderWrapper"] {
+    background: var(--card) !important;
+    border: none !important;
+    border-radius: 16px !important;
+    padding: 0.9rem 1rem !important;
+    box-shadow: var(--shadow-md) !important;
+}
+
+/* Nested cards (card inside card) → no shadow, subtle separator */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"] {
+    background: var(--card) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: 12px !important;
+    padding: 0.7rem 0.85rem !important;
+    box-shadow: none !important;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"] hr {
+    margin: 0.4rem 0;
+    border-color: var(--border-subtle);
+}
+
+/* ── Metrics ── */
+/* Standalone metric → white card */
 [data-testid="stMetric"] {
     background: var(--card);
-    border: 1px solid var(--border);
+    border: none;
     border-radius: 14px;
     padding: 0.85rem 0.95rem;
     box-shadow: var(--shadow-sm);
 }
 
-/* Remove card decoration for metrics inside containers (avoid double-card) */
+/* Metrics inside cards → flush (no double card) */
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"] {
     background: transparent;
     border: none;
@@ -86,23 +110,11 @@ h1, h2, h3 {
     font-size: 0.74rem;
 }
 
-[data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 1rem 1.05rem;
-    box-shadow: var(--shadow-md);
-}
-
-[data-testid="stVerticalBlockBorderWrapper"] hr {
-    margin: 0.4rem 0;
-    border-color: #f1f4f9;
-}
-
+/* ── Expanders → white card style ── */
 [data-testid="stExpander"] {
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.75);
+    background: var(--card);
     box-shadow: var(--shadow-sm);
 }
 
@@ -112,12 +124,13 @@ details summary {
     color: #334155;
 }
 
+/* ── Tabs → pill style ── */
 [data-testid="stTabs"] [role="tablist"] {
     gap: 0.45rem;
 }
 
 [data-testid="stTabs"] [role="tab"] {
-    background: #ffffff;
+    background: var(--card);
     border: 1px solid var(--border);
     border-radius: 9999px;
     padding: 0.35rem 0.8rem;
@@ -128,16 +141,18 @@ details summary {
     background: #eff6ff;
 }
 
+/* ── Dialogs ── */
 [data-testid="stDialog"] {
     min-width: 760px;
     border-radius: 18px;
 }
 
+/* ── Buttons ── */
 .stButton > button {
     border-radius: 10px;
     border: 1px solid #d8e1ee;
-    background: #ffffff;
-    color: #0f172a;
+    background: var(--card);
+    color: var(--text);
     font-weight: 600;
     transition: all 0.15s ease;
 }
@@ -148,18 +163,20 @@ details summary {
     transform: translateY(-1px);
 }
 
+/* ── DataFrames ── */
 [data-testid="stDataFrame"] {
-    border: 1px solid var(--border);
+    border: none;
     border-radius: 14px;
     overflow: hidden;
     box-shadow: var(--shadow-sm);
 }
 
+/* ── Dialog-only classes (Tier 3) ── */
 .dlg-section {
     font-size: 0.82rem;
     font-weight: 700;
-    color: #0f172a;
-    border-bottom: 2px solid #e2e8f0;
+    color: var(--text);
+    border-bottom: 2px solid var(--border);
     padding-bottom: 0.3rem;
     margin: 1rem 0 0.5rem;
 }
@@ -169,16 +186,14 @@ details summary {
     justify-content: space-between;
     padding: 0.25rem 0;
     font-size: 0.8rem;
-    border-bottom: 1px solid #f8fafc;
+    border-bottom: 1px solid var(--border-subtle);
 }
 
-.dlg-key {
-    color: #64748b;
-}
+.dlg-key { color: var(--muted); }
 
 .dlg-val {
     font-weight: 600;
-    color: #0f172a;
+    color: var(--text);
 }
 
 .dlg-insight {
