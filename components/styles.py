@@ -1,27 +1,35 @@
-"""Dashboard styles — bulletproof card-first design for Streamlit Cloud."""
+"""Dashboard styles — bulletproof card-first design for Streamlit Cloud.
+
+CRITICAL: Font loading is separated from CSS to prevent @import failures
+from breaking the entire style block. This is the #1 cause of card
+rendering failures on Streamlit Cloud.
+"""
 
 import streamlit as st
 
 
 def inject_css():
-    """Inject styles that RELIABLY render cards on Streamlit Cloud.
+    """Inject styles in TWO steps: font link + CSS rules.
 
-    Design principles (from reference analysis):
-    1. White cards on gray background — CLEAR separation
-    2. Minimal color — white base, 1-2 accents only
-    3. Visual hierarchy — size & weight, not color
-    4. Strategic whitespace — breathing room between elements
-    5. Consistent card system — all content lives in cards
+    Step 1: <link> for Google Fonts (non-blocking, fails gracefully)
+    Step 2: <style> for all CSS rules (guaranteed to load)
     """
+    # ── Step 1: Font — separate from CSS so failures don't cascade ──
+    st.markdown(
+        '<link href="https://fonts.googleapis.com/css2?'
+        'family=Inter:wght@400;500;600;700;800&display=swap" '
+        'rel="stylesheet">',
+        unsafe_allow_html=True,
+    )
+
+    # ── Step 2: All CSS — no @import, guaranteed to parse ──
     st.markdown(
         """<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
 /* ══════════════════════════════════════════════
    GLOBAL
    ══════════════════════════════════════════════ */
 
-html, body, [class*="css"] {
+html, body, [class*="css"], [class*="st-"] {
     font-family: "Inter", -apple-system, BlinkMacSystemFont,
                  "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif !important;
     -webkit-font-smoothing: antialiased !important;
@@ -38,40 +46,56 @@ html, body, [class*="css"] {
 
 /* ══════════════════════════════════════════════
    CARDS — st.container(border=True)
+   Multi-selector targeting for Streamlit Cloud.
    ══════════════════════════════════════════════ */
 
+/* Wrapper element */
 [data-testid="stVerticalBlockBorderWrapper"] {
     background-color: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
-    border-radius: 12px !important;
+    border-radius: 14px !important;
     padding: 1.5rem 1.75rem !important;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06),
                 0 1px 2px rgba(0,0,0,0.03) !important;
     margin-bottom: 1rem !important;
+    overflow: visible !important;
 }
 
-/* Nested cards — subtle differentiation */
+/* Inner div (Streamlit places border here in some versions) */
+[data-testid="stVerticalBlockBorderWrapper"] > div:first-child {
+    background-color: #ffffff !important;
+    border: none !important;
+    border-radius: 14px !important;
+    box-shadow: none !important;
+}
+
+/* Nested cards — subtle flat bg */
 [data-testid="stVerticalBlockBorderWrapper"]
   [data-testid="stVerticalBlockBorderWrapper"] {
     background-color: #f8fafc !important;
     border: 1px solid #f1f5f9 !important;
-    border-radius: 8px !important;
-    padding: 1rem !important;
+    border-radius: 10px !important;
+    padding: 1rem 1.25rem !important;
     box-shadow: none !important;
-    margin-bottom: 0 !important;
+    margin-bottom: 0.5rem !important;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"]
+  [data-testid="stVerticalBlockBorderWrapper"] > div:first-child {
+    background-color: #f8fafc !important;
+    border: none !important;
 }
 
 /* ══════════════════════════════════════════════
    TYPOGRAPHY
    ══════════════════════════════════════════════ */
 
-/* L1: Page title */
 h1 {
-    font-size: 1.35rem !important;
+    font-size: 1.3rem !important;
     font-weight: 800 !important;
     letter-spacing: -0.03em !important;
     color: #0f172a !important;
-    margin-bottom: 1rem !important;
+    margin-bottom: 0.5rem !important;
     padding-bottom: 0 !important;
 }
 
@@ -79,11 +103,6 @@ h2, h3 {
     font-weight: 700 !important;
     letter-spacing: -0.02em !important;
     color: #0f172a !important;
-}
-
-/* Section header within cards (bold markdown) */
-.stMarkdown p strong {
-    letter-spacing: -0.01em;
 }
 
 /* Tabular nums for financial data */
@@ -94,14 +113,14 @@ h2, h3 {
 }
 
 /* ══════════════════════════════════════════════
-   METRICS
+   METRICS — transparent on card bg
    ══════════════════════════════════════════════ */
 
 [data-testid="stMetric"] {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    padding: 0.35rem 0 !important;
+    padding: 0.25rem 0 !important;
 }
 
 [data-testid="stMetricLabel"] p {
@@ -110,7 +129,7 @@ h2, h3 {
     text-transform: uppercase !important;
     letter-spacing: 0.06em !important;
     font-weight: 600 !important;
-    margin-bottom: 0.15rem !important;
+    margin-bottom: 0.1rem !important;
 }
 
 [data-testid="stMetricValue"] > div {
@@ -126,17 +145,17 @@ h2, h3 {
 }
 
 /* ══════════════════════════════════════════════
-   DIVIDERS — barely visible separation
+   DIVIDERS
    ══════════════════════════════════════════════ */
 
 hr {
-    margin: 0.75rem 0 !important;
+    margin: 0.6rem 0 !important;
     border: none !important;
     border-top: 1px solid #f1f5f9 !important;
 }
 
 /* ══════════════════════════════════════════════
-   CAPTIONS — muted helper text
+   CAPTIONS
    ══════════════════════════════════════════════ */
 
 [data-testid="stCaptionContainer"] p {
@@ -146,19 +165,18 @@ hr {
 }
 
 /* ══════════════════════════════════════════════
-   ALERTS — st.success / st.warning / st.error / st.info
+   ALERTS
    ══════════════════════════════════════════════ */
 
 [data-testid="stAlert"] {
-    border-radius: 8px !important;
+    border-radius: 10px !important;
     padding: 0.6rem 0.85rem !important;
     font-size: 0.82rem !important;
-    margin-top: 0.25rem !important;
-    margin-bottom: 0.25rem !important;
+    margin: 0.3rem 0 !important;
 }
 
 /* ══════════════════════════════════════════════
-   PROGRESS BARS
+   PROGRESS
    ══════════════════════════════════════════════ */
 
 [data-testid="stProgress"] > div > div {
@@ -175,10 +193,6 @@ hr {
     border-right: 1px solid #e2e8f0 !important;
 }
 
-[data-testid="stSidebar"] .block-container {
-    padding: 1.5rem 1rem !important;
-}
-
 [data-testid="stSidebar"] [data-testid="stMetricValue"] > div {
     font-size: 1.5rem !important;
 }
@@ -190,7 +204,7 @@ hr {
 [data-testid="stExpander"] {
     background-color: #ffffff !important;
     border: 1px solid #e2e8f0 !important;
-    border-radius: 12px !important;
+    border-radius: 14px !important;
     box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
     margin-bottom: 1rem !important;
 }
@@ -199,7 +213,6 @@ details summary {
     font-size: 0.82rem !important;
     font-weight: 600 !important;
     color: #334155 !important;
-    padding: 0.65rem 0 !important;
 }
 
 /* ══════════════════════════════════════════════
@@ -212,7 +225,7 @@ details summary {
 }
 
 [data-testid="stTabs"] [role="tab"] {
-    background: #ffffff !important;
+    background: #f8fafc !important;
     border: 1px solid #e2e8f0 !important;
     border-radius: 9999px !important;
     padding: 0.35rem 0.75rem !important;
@@ -237,14 +250,12 @@ details summary {
     color: #334155 !important;
     font-weight: 600 !important;
     font-size: 0.8rem !important;
-    padding: 0.4rem 0.8rem !important;
     transition: all 0.15s ease !important;
 }
 
 .stButton > button:hover {
     border-color: #cbd5e1 !important;
     background: #f8fafc !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
 }
 
 /* ══════════════════════════════════════════════
@@ -258,37 +269,27 @@ details summary {
 }
 
 /* ══════════════════════════════════════════════
-   RADIO / SELECTBOX
-   ══════════════════════════════════════════════ */
-
-[data-testid="stRadio"] label {
-    font-size: 0.82rem !important;
-    font-weight: 500 !important;
-}
-
-/* ══════════════════════════════════════════════
    DIALOGS
    ══════════════════════════════════════════════ */
 
 [data-testid="stDialog"] {
     min-width: 760px !important;
-    border-radius: 12px !important;
+    border-radius: 14px !important;
 }
 
 /* ══════════════════════════════════════════════
    CUSTOM COMPONENTS
    ══════════════════════════════════════════════ */
 
-/* Card title */
 .card-title {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    margin-bottom: 0.85rem;
+    margin-bottom: 0.75rem;
 }
 
 .card-title-text {
-    font-size: 0.92rem;
+    font-size: 0.88rem;
     font-weight: 700;
     color: #0f172a;
     letter-spacing: -0.01em;
@@ -309,18 +310,28 @@ details summary {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 9999px;
-    padding: 0.15rem 0.5rem;
+    padding: 0.12rem 0.5rem;
     margin-left: auto;
 }
 
-/* Hero value (portfolio total) */
+/* Hero value */
 .hero-value {
-    font-size: 2rem;
+    font-size: 2.2rem;
     font-weight: 800;
     color: #0f172a;
-    letter-spacing: -1px;
-    line-height: 1.1;
-    margin: 0.25rem 0 0.4rem;
+    letter-spacing: -1.5px;
+    line-height: 1.05;
+    margin: 0.15rem 0 0.35rem;
+}
+
+/* Section label (uppercase) */
+.section-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 0.4rem 0 0.35rem;
 }
 
 /* Status dots */
@@ -336,16 +347,6 @@ details summary {
 .status-dot--fail   { background: #dc2626; box-shadow: 0 0 0 2px rgba(220,38,38,0.15); }
 .status-dot--none   { background: #e2e8f0; }
 .status-dot--active { background: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
-
-/* Section label (inside cards) */
-.section-label {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: #475569;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin: 0.5rem 0 0.4rem;
-}
 
 /* Dialog helpers */
 .dlg-section {
@@ -368,27 +369,8 @@ details summary {
 .dlg-key { color: #64748b; }
 .dlg-val { font-weight: 600; color: #0f172a; font-variant-numeric: tabular-nums; }
 
-.dlg-insight {
-    background: #fffbeb;
-    border-left: 3px solid #d97706;
-    border-radius: 8px;
-    padding: 0.6rem 0.8rem;
-    margin: 0.5rem 0;
-    font-size: 0.8rem;
-    color: #92400e;
-}
-
 .c-pos { color: #059669; font-weight: 600; }
 .c-neg { color: #dc2626; font-weight: 600; }
-
-/* ══════════════════════════════════════════════
-   HIDE STREAMLIT CHROME
-   ══════════════════════════════════════════════ */
-
-/* Remove default top padding from main area */
-.stMainBlockContainer {
-    padding-top: 1.5rem !important;
-}
 
 /* ══════════════════════════════════════════════
    RESPONSIVE
@@ -398,34 +380,15 @@ details summary {
     .block-container {
         padding: 1rem 0.75rem 2rem !important;
     }
-
-    .hero-value {
-        font-size: 1.6rem !important;
-    }
-
+    .hero-value { font-size: 1.6rem !important; }
     [data-testid="stVerticalBlockBorderWrapper"] {
         padding: 1rem 1.25rem !important;
-        border-radius: 10px !important;
     }
 }
 
 @media (max-width: 480px) {
-    .block-container {
-        padding: 0.75rem 0.5rem 1.5rem !important;
-    }
-
-    .hero-value {
-        font-size: 1.35rem !important;
-    }
-
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        padding: 0.85rem 1rem !important;
-        border-radius: 8px !important;
-    }
-
-    [data-testid="stMetricValue"] > div {
-        font-size: 1rem !important;
-    }
+    .hero-value { font-size: 1.3rem !important; }
+    [data-testid="stMetricValue"] > div { font-size: 1rem !important; }
 }
 </style>""",
         unsafe_allow_html=True,
