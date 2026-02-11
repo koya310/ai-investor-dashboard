@@ -59,10 +59,10 @@ h1, h2, h3 {
     box-shadow: var(--shadow-md) !important;
 }
 
-/* Nested cards (card inside card) → no shadow, subtle separator */
+/* Nested cards (card inside card) → no border, no shadow */
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"] {
     background: var(--card) !important;
-    border: 1px solid var(--border-subtle) !important;
+    border: none !important;
     border-radius: 12px !important;
     padding: 0.7rem 0.85rem !important;
     box-shadow: none !important;
@@ -119,9 +119,9 @@ h1, h2, h3 {
     font-size: 0.74rem;
 }
 
-/* ── Expanders → white card style ── */
+/* ── Expanders → white card style, no border ── */
 [data-testid="stExpander"] {
-    border: 1px solid var(--border-subtle);
+    border: none;
     border-radius: 14px;
     background: var(--card);
     box-shadow: var(--shadow-sm);
