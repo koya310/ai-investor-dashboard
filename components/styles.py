@@ -4,7 +4,7 @@ import streamlit as st
 
 
 def inject_css():
-    """Inject modern card-based styling — white cards only, no grey borders."""
+    """Inject modern card-based styling — white cards, no borders, shadow only."""
     st.markdown(
         """<style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -14,133 +14,124 @@ def inject_css():
     --card: #ffffff;
     --text: #0f172a;
     --muted: #64748b;
-    --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
-    --shadow-md: 0 4px 20px rgba(15, 23, 42, 0.06);
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 5px rgba(15, 23, 42, 0.03);
+    --shadow-md: 0 2px 8px rgba(15, 23, 42, 0.05), 0 4px 20px rgba(15, 23, 42, 0.04);
+    --radius-lg: 16px;
+    --radius-md: 12px;
+    --radius-sm: 10px;
 }
 
+/* ── Typography ── */
 html, body, [class*="css"] {
-    font-family: "Plus Jakarta Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont,
+                 "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
 }
 
 .stApp {
     background:
-        radial-gradient(1000px 360px at 95% -10%, rgba(37, 99, 235, 0.08), transparent 55%),
-        radial-gradient(900px 280px at -10% 0%, rgba(5, 150, 105, 0.05), transparent 50%),
+        radial-gradient(ellipse 1100px 400px at 92% -8%, rgba(37, 99, 235, 0.06), transparent 60%),
+        radial-gradient(ellipse 900px 300px at -5% 4%, rgba(5, 150, 105, 0.04), transparent 55%),
         var(--bg);
     color: var(--text);
 }
 
 .block-container {
-    padding-top: 1.25rem;
-    padding-bottom: 2rem;
+    padding-top: 2rem;
+    padding-bottom: 2.5rem;
+    max-width: 1120px;
 }
 
-h1, h2, h3 {
-    letter-spacing: -0.02em;
-    font-weight: 700;
-}
+h1 { font-size: 1.65rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.3rem; }
+h2 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; }
+h3 { font-size: 1.0rem; font-weight: 700; letter-spacing: -0.01em; }
 
+/* ── Sidebar ── */
 [data-testid="stSidebar"] {
-    border-right: 1px solid rgba(231, 236, 244, 0.9);
+    border-right: 1px solid rgba(231, 236, 244, 0.7) !important;
 }
-
 [data-testid="stSidebar"] .block-container {
     padding-top: 1.1rem;
 }
 
 /* ══════════════════════════════════════════════════════════════
-   NUCLEAR BORDER REMOVAL
-   Streamlit puts borders on CHILD divs via inline styles.
-   We must target both the wrapper AND its > div child.
+   BORDER REMOVAL — config.toml sets borderColor=transparent
+   globally. These rules add card styling (bg + shadow + radius)
+   and fix any remaining border via correct selectors.
    ══════════════════════════════════════════════════════════════ */
 
-/* ── Container cards: white card with shadow ── */
-[data-testid="stVerticalBlockBorderWrapper"],
-[data-testid="stVerticalBlockBorderWrapper"] > div {
-    background: var(--card) !important;
+/* Belt-and-suspenders: also kill borders on the correct element */
+div[data-testid="stVerticalBlock"],
+div[data-testid="stMetric"],
+div[data-testid="stExpander"],
+div[data-testid="stForm"] {
     border: none !important;
-    border-radius: 16px !important;
-    box-shadow: var(--shadow-md) !important;
+    border-color: transparent !important;
 }
 
+/* ── Top-level cards: white + shadow ── */
 [data-testid="stVerticalBlockBorderWrapper"] {
-    padding: 0.9rem 1rem !important;
+    background: var(--card);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.15rem;
+    box-shadow: var(--shadow-md);
+    margin-bottom: 0.3rem;
 }
 
-/* Nested cards: no shadow, no border */
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"],
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"] > div {
-    border: none !important;
-    box-shadow: none !important;
-    border-radius: 12px !important;
-}
-
+/* Nested cards: subtle elevation, no outer shadow */
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stVerticalBlockBorderWrapper"] {
-    padding: 0.7rem 0.85rem !important;
+    background: var(--card);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 0.9rem;
+    box-shadow: none;
 }
 
 [data-testid="stVerticalBlockBorderWrapper"] hr {
     margin: 0.4rem 0;
-    border-color: #f0f3f8;
+    border-color: #eef1f6;
+    opacity: 0.7;
 }
 
 /* ── Metrics ── */
-/* Standalone metric → white card */
-[data-testid="stMetric"],
-[data-testid="stMetric"] > div {
-    background: var(--card) !important;
-    border: none !important;
-    border-radius: 14px !important;
-    box-shadow: var(--shadow-sm) !important;
-}
-
+/* Standalone metric */
 [data-testid="stMetric"] {
-    padding: 0.85rem 0.95rem !important;
+    background: var(--card);
+    border-radius: var(--radius-md);
+    padding: 0.75rem 0.85rem;
+    box-shadow: var(--shadow-sm);
 }
 
-/* Metrics inside cards → flush (no double card) */
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"],
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"] > div,
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"] *,
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetricLabel"],
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetricValue"],
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetricDelta"] {
-    background: transparent !important;
-    border: none !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    outline: none !important;
-}
-
+/* Metrics inside cards → flush, no double-card */
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"] {
-    padding: 0.4rem 0.2rem !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 0.4rem 0.15rem !important;
+    box-shadow: none !important;
 }
 
 [data-testid="stMetricLabel"] p {
     color: var(--muted);
-    font-size: 0.67rem;
+    font-size: 0.66rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.07em;
     font-weight: 700;
 }
 
 [data-testid="stMetricValue"] > div {
-    font-size: 1.38rem;
+    font-size: 1.35rem;
     font-weight: 800;
     letter-spacing: -0.02em;
+    line-height: 1.2;
 }
 
 [data-testid="stMetricDelta"] {
-    font-size: 0.74rem;
+    font-size: 0.72rem;
 }
 
-/* ── Expanders → white card, no border ── */
-[data-testid="stExpander"],
-[data-testid="stExpander"] > div {
-    border: none !important;
-    border-radius: 14px !important;
-    background: var(--card) !important;
-    box-shadow: var(--shadow-sm) !important;
+/* ── Expanders ── */
+[data-testid="stExpander"] {
+    border-radius: var(--radius-md);
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
 }
 
 details summary {
@@ -149,54 +140,82 @@ details summary {
     color: #334155;
 }
 
-/* ── Tabs → pill style (border is intentional here for tab shape) ── */
+/* ── Tabs → pill ── */
 [data-testid="stTabs"] [role="tablist"] {
-    gap: 0.45rem;
+    gap: 0.4rem;
 }
-
 [data-testid="stTabs"] [role="tab"] {
     background: var(--card);
-    border: 1px solid #e7ecf4;
+    border: 1px solid #dfe5ef !important;
     border-radius: 9999px;
-    padding: 0.35rem 0.8rem;
+    padding: 0.32rem 0.75rem;
+    font-size: 0.82rem;
+    font-weight: 600;
 }
-
 [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
-    border-color: #bfdbfe;
+    border-color: #bfdbfe !important;
     background: #eff6ff;
+    color: #1d4ed8;
 }
 
 /* ── Dialogs ── */
 [data-testid="stDialog"] {
     min-width: 760px;
-    border-radius: 18px;
+    border-radius: 20px;
 }
 
 /* ── Buttons ── */
 .stButton > button {
-    border-radius: 10px;
-    border: 1px solid #d8e1ee;
+    border-radius: var(--radius-sm);
+    border: 1px solid #dce3ee !important;
     background: var(--card);
     color: var(--text);
     font-weight: 600;
+    font-size: 0.84rem;
+    padding: 0.4rem 1rem;
     transition: all 0.15s ease;
 }
-
 .stButton > button:hover {
-    border-color: #bfd0e8;
-    box-shadow: 0 5px 14px rgba(37, 99, 235, 0.14);
+    border-color: #c4d0e3 !important;
+    box-shadow: 0 3px 12px rgba(37, 99, 235, 0.1);
     transform: translateY(-1px);
+}
+.stButton > button:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
 }
 
 /* ── DataFrames ── */
 [data-testid="stDataFrame"] {
-    border: none;
-    border-radius: 14px;
+    border-radius: var(--radius-md);
     overflow: hidden;
     box-shadow: var(--shadow-sm);
 }
 
-/* ── Dialog-only classes (Tier 3) ── */
+/* ── Alert boxes ── */
+[data-testid="stAlert"] {
+    border-radius: var(--radius-sm);
+    font-size: 0.84rem;
+}
+
+/* ── Progress bars ── */
+[data-testid="stProgress"] > div > div {
+    border-radius: 6px;
+    height: 6px;
+}
+
+/* ── Radio / toggle group ── */
+[data-testid="stRadio"] > div {
+    gap: 0.4rem;
+}
+
+/* ── Captions ── */
+[data-testid="stCaptionContainer"] {
+    font-size: 0.76rem;
+    color: #94a3b8;
+}
+
+/* ── Dialog-only helper classes (Tier 3) ── */
 .dlg-section {
     font-size: 0.82rem;
     font-weight: 700;
@@ -205,7 +224,6 @@ details summary {
     padding-bottom: 0.3rem;
     margin: 1rem 0 0.5rem;
 }
-
 .dlg-row {
     display: flex;
     justify-content: space-between;
@@ -213,16 +231,10 @@ details summary {
     font-size: 0.8rem;
     border-bottom: 1px solid #f0f3f8;
 }
-
 .dlg-key { color: var(--muted); }
-
-.dlg-val {
-    font-weight: 600;
-    color: var(--text);
-}
-
+.dlg-val { font-weight: 600; color: var(--text); }
 .dlg-insight {
-    background: #fff7ed;
+    background: #fffbeb;
     border-left: 3px solid #f59e0b;
     border-radius: 8px;
     padding: 0.6rem 0.8rem;
@@ -230,7 +242,6 @@ details summary {
     font-size: 0.78rem;
     color: #92400e;
 }
-
 .c-pos { color: #059669; }
 .c-neg { color: #e11d48; }
 </style>""",

@@ -3,3 +3,6 @@ primaryColor = "#2563eb"
 backgroundColor = "#f3f5f9"
 secondaryBackgroundColor = "#ffffff"
 textColor = "#0f172a"
+
+# Kill ALL Streamlit default borders at theme level
+borderColor = "transparent"
