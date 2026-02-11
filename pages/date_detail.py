@@ -31,6 +31,14 @@ def _as_date(s: str | None, fallback: date) -> date:
         return fallback
 
 
+def _safe_int(v, default: int = 0) -> int:
+    """Safely convert to int (handles float strings like '8.5')."""
+    try:
+        return int(float(v)) if v is not None else default
+    except (ValueError, TypeError):
+        return default
+
+
 def _hm(ts: str) -> str:
     if not ts or len(ts) < 16:
         return "-"
@@ -64,6 +72,7 @@ next_date = (
 )
 
 st.title("日付詳細")
+st.caption("日付ごとの詳細ログとTicker別フロー")
 
 # ── ナビゲーション（小さなカード） ──
 with st.container(border=True):
@@ -136,7 +145,10 @@ with st.container(border=True):
     st.divider()
 
     # ── システム実行ログ ──
-    st.markdown("**システム実行ログ**")
+    st.markdown(
+        '<div class="section-label">システム実行ログ</div>',
+        unsafe_allow_html=True,
+    )
 
     if len(runs) == 0:
         st.caption("この日の実行記録はありません。")
@@ -167,12 +179,12 @@ with st.container(border=True):
                 )
             with h3:
                 st.markdown(
-                    f"ニュース **{int(r.get('news_collected', 0) or 0)}件** / "
-                    f"シグナル **{int(r.get('signals_detected', 0) or 0)}件** / "
-                    f"取引 **{int(r.get('trades_executed', 0) or 0)}件**"
+                    f"ニュース **{_safe_int(r.get('news_collected', 0))}件** / "
+                    f"シグナル **{_safe_int(r.get('signals_detected', 0))}件** / "
+                    f"取引 **{_safe_int(r.get('trades_executed', 0))}件**"
                 )
             with h4:
-                err_cnt = int(r.get("errors_count", 0) or 0)
+                err_cnt = _safe_int(r.get("errors_count", 0))
                 st.metric("エラー", f"{err_cnt}件")
             err_msg = str(r.get("error_message", "") or "").strip()
             if err_msg:
@@ -181,7 +193,10 @@ with st.container(border=True):
     st.divider()
 
     # ── Ticker別フロー ──
-    st.markdown("**Ticker別フロー**")
+    st.markdown(
+        '<div class="section-label">Ticker別フロー</div>',
+        unsafe_allow_html=True,
+    )
 
     c1, c2, c3 = st.columns(3)
     c1.metric("対象Ticker", f"{len(ticker_flow)}")
@@ -246,13 +261,13 @@ with st.container(border=True):
                                if pnl is not None else "-")
                     st.markdown(
                         f"**{trd.get('action', '-')}** "
-                        f"{int(trd.get('shares', 0) or 0)}株  "
+                        f"{_safe_int(trd.get('shares', 0))}株  "
                         f"@ ${float(trd.get('price', 0) or 0):.2f}  /  {pnl_txt}"
                     )
                 elif sig:
                     st.markdown(
                         f"**{sig.get('type', '-')}**  "
-                        f"確信度 {int(sig.get('conviction', 0) or 0)}"
+                        f"確信度 {_safe_int(sig.get('conviction', 0))}"
                     )
                 else:
                     st.caption("売買判断なし")
@@ -260,7 +275,10 @@ with st.container(border=True):
     st.divider()
 
     # ── 詳細データ（タブ） ──
-    st.markdown("**詳細データ**")
+    st.markdown(
+        '<div class="section-label">詳細データ</div>',
+        unsafe_allow_html=True,
+    )
 
     tab_news, tab_analysis, tab_signals, tab_trades = st.tabs([
         f"ニュース ({len(news_df)})",

@@ -23,6 +23,7 @@ timeline_df = load_runs_timeline()
 health = load_health_metrics()
 
 st.title("パイプライン")
+st.caption("自動売買プロセスの稼働状況")
 
 runs_today = pipeline["runs_today"]
 completed_runs = sum(1 for r in runs_today if r.get("status") == "completed")
@@ -79,7 +80,10 @@ with st.container(border=True):
     st.divider()
 
     # ── 投資プロセス ──
-    st.markdown("**投資プロセス**")
+    st.markdown(
+        '<div class="section-label">投資プロセス</div>',
+        unsafe_allow_html=True,
+    )
 
     for i, (key, label, desc, tip) in enumerate(steps_config):
         if i > 0:
@@ -104,7 +108,7 @@ with st.container(border=True):
             elif status == "skipped":
                 st.markdown(
                     f'<div style="width:28px;height:28px;border-radius:50%;'
-                    f'background:#f59e0b;color:#fff;display:flex;align-items:center;'
+                    f'background:#d97706;color:#fff;display:flex;align-items:center;'
                     f'justify-content:center;font-size:0.8rem;font-weight:700">'
                     f'↷</div>',
                     unsafe_allow_html=True,
@@ -179,7 +183,10 @@ with st.container(border=True):
     st.divider()
 
     # ── 運用品質 ──
-    st.markdown("**運用品質**（過去7日間の平均）")
+    st.markdown(
+        '<div class="section-label">運用品質（過去7日間平均）</div>',
+        unsafe_allow_html=True,
+    )
     st.caption("目安: 正常処理率90%以上 / 稼働継続率95%以上")
 
     success_rate = max(0.0, 100.0 - health["error_rate"])
@@ -213,7 +220,7 @@ date_options = (
 )
 
 with st.container(border=True):
-    card_title("運用履歴", color="#f59e0b", subtitle="直近14日")
+    card_title("運用履歴", color="#d97706", subtitle="直近14日")
 
     # ── 日付ドリルダウン ──
     pick_col, move_col = st.columns([4, 1])
@@ -248,7 +255,10 @@ with st.container(border=True):
     st.divider()
 
     # ── 日次運用カレンダー ──
-    st.markdown("**日次運用カレンダー**")
+    st.markdown(
+        '<div class="section-label">日次運用カレンダー</div>',
+        unsafe_allow_html=True,
+    )
     st.markdown(
         f'{status_dot_html("completed")} 正常&nbsp;&nbsp;'
         f'{status_dot_html("interrupted")} 一部異常&nbsp;&nbsp;'
@@ -369,7 +379,7 @@ with st.expander("ニュース・分析活用（直近14日）", expanded=False)
             yaxis=dict(showgrid=True, gridcolor="#f1f5f9", tickfont_size=10),
             barmode="group", bargap=0.3,
             font=dict(
-                family="Plus Jakarta Sans, Hiragino Kaku Gothic ProN, sans-serif",
+                family="Inter, Hiragino Kaku Gothic ProN, sans-serif",
                 size=11,
             ),
         )

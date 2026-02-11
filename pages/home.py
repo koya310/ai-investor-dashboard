@@ -30,6 +30,7 @@ alpaca_pf = d["alpaca_pf"]
 alpaca_positions = d["alpaca_positions"]
 
 st.title("ポートフォリオ")
+st.caption("Phase 3 ペーパートレードの運用状況")
 
 
 # ============================================================
@@ -390,35 +391,33 @@ with st.container(border=True):
         )
         fig.update_layout(
             template="plotly_white", height=280,
-            margin=dict(t=8, b=24, l=12, r=50),
+            margin=dict(t=8, b=24, l=50, r=16),
             xaxis=dict(
                 title="",
-                gridcolor="rgba(241,245,249,0.5)",
-                linecolor="transparent",
+                gridcolor="#f1f5f9",
+                linecolor="#e2e8f0",
                 tickfont=dict(size=10, color="#94a3b8"),
             ),
             yaxis=dict(
                 title="", tickprefix="$", tickformat=",",
-                gridcolor="rgba(241,245,249,0.7)",
-                linecolor="transparent",
+                gridcolor="#f1f5f9",
+                linecolor="#e2e8f0",
                 tickfont=dict(size=10, color="#94a3b8"),
-                side="right",
             ),
             legend=dict(
                 orientation="h", yanchor="bottom", y=1.02,
                 xanchor="right", x=1,
                 font=dict(size=10, color="#64748b"),
-                bgcolor="rgba(0,0,0,0)",
             ),
             font=dict(
-                family="Plus Jakarta Sans, Hiragino Kaku Gothic ProN, sans-serif",
+                family="Inter, Hiragino Kaku Gothic ProN, sans-serif",
                 size=11,
             ),
-            plot_bgcolor="rgba(0,0,0,0)",
-            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="white",
+            paper_bgcolor="white",
             hoverlabel=dict(
-                bgcolor="#1e293b", font_color="#f8fafc",
-                font_size=11, bordercolor="transparent",
+                bgcolor="#1e293b",
+                font=dict(color="#f8fafc", size=11),
             ),
         )
         st.plotly_chart(fig, use_container_width=True)
@@ -490,9 +489,13 @@ with st.container(border=True):
     achieved_count = sum(1 for item in kpi_checks if item["ok"])
     pending_count = len(kpi_checks) - achieved_count
 
-    title_col, btn_col = st.columns([6, 1])
+    title_col, btn_col = st.columns([5, 1])
     with title_col:
-        st.markdown(f"**実取引チェックリスト**  残り{days_left}日で判定")
+        st.markdown(
+            f'<div class="section-label">実取引チェックリスト</div>',
+            unsafe_allow_html=True,
+        )
+        st.caption(f"残り{days_left}日で Go/No-Go 判定")
     with btn_col:
         if st.button("詳細分析", type="secondary", use_container_width=True):
             show_analysis_dialog()
@@ -593,7 +596,7 @@ with st.container(border=True):
                         label = "WORST"
                     else:
                         label = "WIN" if pnl_val >= 0 else "LOSS"
-                    label_color = {"BEST": "#f59e0b", "WORST": "#7c3aed",
+                    label_color = {"BEST": "#d97706", "WORST": "#7c3aed",
                                    "WIN": W, "LOSS": L}.get(label, P)
                     hd = t.get("holding_days")
                     hd_str = f" · {int(hd)}日保有" if pd.notna(hd) and hd else ""

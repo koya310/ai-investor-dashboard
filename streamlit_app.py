@@ -34,8 +34,14 @@ nav = st.navigation(
 
 # ── サイドバー ──
 with st.sidebar:
-    st.markdown("### AI Investor")
-    st.caption("Phase 3 Monitor")
+    st.markdown(
+        '<div style="font-size:1.1rem;font-weight:800;letter-spacing:-0.03em;'
+        'color:#0f172a;margin-bottom:0.15rem">AI Investor</div>',
+        unsafe_allow_html=True,
+    )
+    st.caption("Phase 3 Paper Trading Monitor")
+
+    st.divider()
 
     # Go/No-Go カウントダウン
     deadline_dt = datetime.strptime(_dm.GONOGO_DEADLINE, "%Y-%m-%d")
@@ -47,26 +53,26 @@ with st.sidebar:
         delta_color="off",
     )
 
-    if st.button("データを再読込", use_container_width=True):
-        st.cache_data.clear()
-        st.rerun()
-
     # システム状態
     last_run = _dm.get_last_system_run()
     if last_run:
         status = last_run["status"]
+        ts = last_run["started_at"][:16] if last_run.get("started_at") else "-"
         if status == "completed":
-            st.success(f"正常稼働  {last_run['started_at'][:16]}")
+            st.success(f"正常稼働  {ts}")
         elif status == "running":
-            st.warning(f"実行中  {last_run['started_at'][:16]}")
+            st.warning(f"実行中  {ts}")
         else:
-            st.error(f"異常  {last_run['started_at'][:16]}")
-            if last_run["error_message"]:
+            st.error(f"異常  {ts}")
+            if last_run.get("error_message"):
                 st.caption(last_run["error_message"][:100])
     else:
         st.info("実行記録なし")
 
     st.divider()
-    st.caption(f"最新判定期限: {_dm.GONOGO_DEADLINE}")
+
+    if st.button("データを再読込", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
 
 nav.run()

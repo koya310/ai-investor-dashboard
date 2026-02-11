@@ -62,10 +62,10 @@ def color_for_status(status: str) -> str:
     """ステータス文字列から色を返す"""
     status_colors = {
         "completed": W,
-        "running": "#f59e0b",
+        "running": "#d97706",
         "failed": L,
         "ok": W,
-        "warn": "#f59e0b",
+        "warn": "#d97706",
         "ng": L,
     }
     return status_colors.get(status, "#94a3b8")
