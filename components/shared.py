@@ -74,8 +74,8 @@ def color_for_status(status: str) -> str:
 def section_header(title: str, color: str = P, subtitle: str = "") -> None:
     """Section header with clean spacing and modern accent."""
     subtitle_html = (
-        f'<span style="font-size:0.7rem;font-weight:600;color:#64748b;'
-        f'background:#f8fafc;border:1px solid #e8edf5;border-radius:9999px;'
+        f'<span style="font-size:0.7rem;font-weight:600;color:#475569;'
+        f'background:#e8edf5;border:1px solid #d4dce8;border-radius:9999px;'
         f'padding:0.2rem 0.55rem">{subtitle}</span>'
         if subtitle
         else ""
@@ -105,6 +105,12 @@ def render_pill(label: str, color: str = P) -> str:
         f'<span style="width:5px;height:5px;border-radius:9999px;'
         f'background:{color};display:inline-block"></span>{label}</span>'
     )
+
+
+def nav_back(label: str, page: str) -> None:
+    """ページ上部の戻るボタン"""
+    if st.button(label, type="tertiary"):
+        st.switch_page(page)
 
 
 # ── キャッシュ付きデータ読み込み ──

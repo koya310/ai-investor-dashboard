@@ -50,12 +50,22 @@ h1, h2, h3 {
     padding-top: 1.1rem;
 }
 
+/* Standalone metric cards (top-level only) */
 [data-testid="stMetric"] {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 14px;
     padding: 0.85rem 0.95rem;
     box-shadow: var(--shadow-sm);
+}
+
+/* Remove card decoration for metrics inside containers (avoid double-card) */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"] {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0.4rem 0.2rem;
+    box-shadow: none;
 }
 
 [data-testid="stMetricLabel"] p {

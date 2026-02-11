@@ -11,7 +11,7 @@ import streamlit as st
 from components.shared import (
     P, W, L,
     WEEKDAY_JP, MODE_LABELS,
-    section_header,
+    section_header, nav_back,
     load_pipeline_status, load_runs_timeline, load_health_metrics,
 )
 
@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 pipeline = load_pipeline_status()
 timeline_df = load_runs_timeline()
 health = load_health_metrics()
+
+nav_back("← ポートフォリオ", "pages/home.py")
 
 st.title("パイプライン")
 with st.container(border=True):
@@ -82,6 +84,22 @@ steps_config = [
     ),
 ]
 
+def _step_badge(status: str, index: int) -> str:
+    """ステップ番号バッジのHTML"""
+    cfg = {
+        "completed": (W, "#fff", "✓"),
+        "skipped": ("#f59e0b", "#fff", "↷"),
+        "failed": (L, "#fff", "✗"),
+    }
+    bg, fg, icon = cfg.get(status, ("#e2e8f0", "#64748b", str(index + 1)))
+    return (
+        f'<div style="width:28px;height:28px;border-radius:50%;'
+        f'background:{bg};color:{fg};display:flex;align-items:center;'
+        f'justify-content:center;font-size:0.8rem;font-weight:700">'
+        f'{icon}</div>'
+    )
+
+
 with st.container(border=True):
     for i, (key, label, desc, tip) in enumerate(steps_config):
         step = pipeline["steps"][key]
@@ -93,39 +111,7 @@ with st.container(border=True):
         col_num, col_body, col_right = st.columns([1, 5, 2])
 
         with col_num:
-            if status == "completed":
-                st.markdown(
-                    f'<div style="width:28px;height:28px;border-radius:50%;'
-                    f'background:{W};color:#fff;display:flex;align-items:center;'
-                    f'justify-content:center;font-size:0.8rem;font-weight:700">'
-                    f'✓</div>',
-                    unsafe_allow_html=True,
-                )
-            elif status == "skipped":
-                st.markdown(
-                    f'<div style="width:28px;height:28px;border-radius:50%;'
-                    f'background:#f59e0b;color:#fff;display:flex;align-items:center;'
-                    f'justify-content:center;font-size:0.8rem;font-weight:700">'
-                    f'↷</div>',
-                    unsafe_allow_html=True,
-                )
-            elif status == "failed":
-                st.markdown(
-                    f'<div style="width:28px;height:28px;border-radius:50%;'
-                    f'background:{L};color:#fff;display:flex;align-items:center;'
-                    f'justify-content:center;font-size:0.8rem;font-weight:700">'
-                    f'✗</div>',
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.markdown(
-                    f'<div style="width:28px;height:28px;border-radius:50%;'
-                    f'background:#e2e8f0;color:#64748b;display:flex;'
-                    f'align-items:center;justify-content:center;'
-                    f'font-size:0.8rem;font-weight:700">'
-                    f'{i + 1}</div>',
-                    unsafe_allow_html=True,
-                )
+            st.markdown(_step_badge(status, i), unsafe_allow_html=True)
 
         with col_body:
             status_label = {
@@ -191,20 +177,15 @@ date_options = (
 section_header("日付別の詳細を見る", color=P)
 
 with st.container(border=True):
-    pick_col, move_col = st.columns([4, 1])
-    with pick_col:
-        selected_date = st.selectbox(
-            "対象日",
-            options=date_options,
-            format_func=lambda dd: f"{dd.isoformat()} ({WEEKDAY_JP[dd.weekday()]})",
-            index=0,
-        )
-    with move_col:
-        st.markdown("")  # vertical align
-        st.markdown("")
-        if st.button("詳細へ", key="goto_selected_date", use_container_width=True):
-            st.query_params["date"] = selected_date.isoformat()
-            st.switch_page("pages/date_detail.py")
+    selected_date = st.selectbox(
+        "対象日",
+        options=date_options,
+        format_func=lambda dd: f"{dd.isoformat()} ({WEEKDAY_JP[dd.weekday()]})",
+        index=0,
+    )
+    if st.button("この日の詳細を見る →", key="goto_selected_date"):
+        st.query_params["date"] = selected_date.isoformat()
+        st.switch_page("pages/date_detail.py")
 
     with st.expander("最近14日をクイック選択", expanded=False):
         for row_start in range(0, min(14, len(date_options)), 7):
@@ -392,7 +373,7 @@ with st.container(border=True):
                 nums_parts.append(f":red[異常 {errors}件]")
             nums_str = " · ".join(nums_parts) if nums_parts else "-"
 
-            col_date, col_dot, col_info, col_nums = st.columns([2, 0.5, 4, 3])
+            col_date, col_dot, col_info, col_nums = st.columns([2, 0.7, 4, 3])
             with col_date:
                 st.markdown(f"**{date_label}**")
             with col_dot:

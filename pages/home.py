@@ -199,8 +199,9 @@ with st.container(border=True):
     qs1.metric("システム状態", _sys_label)
     qs2.metric("勝率", fmt_pct(_wr, decimals=0),
                delta=f"目標 {_targets['win_rate']:.0f}%", delta_color="off")
+    _ret_pct = kpi.get("actual_return_pct", 0)
     qs3.metric("累積損益", fmt_currency(_pnl_total, show_sign=True),
-               delta=fmt_delta(_pnl_total))
+               delta=f"{_ret_pct:+.2f}%", delta_color="off")
     qs4.metric("運用日数", f"{kpi.get('days_running', 0)}日")
 
     verdict_col, action_col = st.columns([5, 1])
@@ -272,13 +273,12 @@ if total_val > 0:
                 f"ポートフォリオ総額  {render_pill(source_label)}",
                 unsafe_allow_html=True,
             )
-
-            # メイン金額
-            st.markdown(
-                f'<div style="font-size:2.2rem;font-weight:800;color:#0f172a;'
-                f'letter-spacing:-1px;line-height:1.1;margin:0.2rem 0">'
-                f"${total_val:,.0f}</div>",
-                unsafe_allow_html=True,
+            st.metric(
+                label="総額",
+                value=f"${total_val:,.0f}",
+                delta=fmt_delta(pnl),
+                delta_color="normal" if pnl >= 0 else "inverse",
+                label_visibility="collapsed",
             )
 
             # PnL + SPY比較
@@ -322,12 +322,8 @@ if total_val > 0:
                     p_pct = p["unrealized_pnl_pct"]
                     col_name, col_val = st.columns([3, 2])
                     with col_name:
-                        st.markdown(
-                            f"**{p['ticker']}**  "
-                            f'<span style="color:#94a3b8;font-size:0.82rem">'
-                            f'{p["shares"]}株</span>',
-                            unsafe_allow_html=True,
-                        )
+                        st.markdown(f"**{p['ticker']}**")
+                        st.caption(f"{p['shares']}株")
                     with col_val:
                         pnl_color = "green" if p_pnl >= 0 else "red"
                         st.markdown(
@@ -517,14 +513,10 @@ deadline_dt = datetime.strptime(_dm.GONOGO_DEADLINE, "%Y-%m-%d")
 days_left = max((deadline_dt - datetime.now()).days, 0)
 targets = _dm.KPI_TARGETS
 
-cl_left, cl_right = st.columns([6, 1])
-with cl_left:
-    section_header("実取引チェックリスト", color="#f59e0b",
-                   subtitle=f"残り{days_left}日で判定")
-with cl_right:
-    st.markdown("")  # spacing
-    if st.button("詳細分析", type="secondary", use_container_width=True):
-        show_analysis_dialog()
+section_header("実取引チェックリスト", color="#f59e0b",
+               subtitle=f"残り{days_left}日で判定")
+if st.button("詳細分析を表示"):
+    show_analysis_dialog()
 
 kpi_checks = []
 
@@ -737,7 +729,7 @@ if len(trades) > 0:
                 pnl_color = "green" if pnl_val >= 0 else "red"
 
                 with st.container(border=True):
-                    col_info, col_result = st.columns([4, 2])
+                    col_info, col_result, col_link = st.columns([4, 2, 0.6])
                     with col_info:
                         st.markdown(
                             f"**{ticker}** {label_pill}  "
@@ -752,6 +744,11 @@ if len(trades) > 0:
                             f":{pnl_color}[**{fmt_currency(pnl_val, show_sign=True)}** "
                             f"({fmt_pct(pct_val, show_sign=True)})]"
                         )
+                    with col_link:
+                        if ed and st.button("📅", key=f"td_{t['id']}",
+                                            help=f"{ed} の詳細を見る"):
+                            st.query_params["date"] = ed
+                            st.switch_page("pages/date_detail.py")
 
             elif t["status"] == "OPEN":
                 ed = (t["entry_timestamp"][:10]
@@ -759,7 +756,7 @@ if len(trades) > 0:
                 open_pill = render_pill("OPEN", P)
 
                 with st.container(border=True):
-                    col_info, col_result = st.columns([4, 2])
+                    col_info, col_result, col_link = st.columns([4, 2, 0.6])
                     with col_info:
                         st.markdown(
                             f"**{ticker}** {open_pill}  "
@@ -769,6 +766,11 @@ if len(trades) > 0:
                         )
                     with col_result:
                         st.markdown(":blue[**保有中**]")
+                    with col_link:
+                        if ed and st.button("📅", key=f"td_{t['id']}",
+                                            help=f"{ed} の詳細を見る"):
+                            st.query_params["date"] = ed
+                            st.switch_page("pages/date_detail.py")
 
         for _, t in _visible:
             _render_trade_card(t, best_id, worst_id)

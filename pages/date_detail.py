@@ -1,5 +1,7 @@
 """Date Detail — 日付別詳細ログ"""
 
+from __future__ import annotations
+
 import logging
 from datetime import date, datetime
 
@@ -13,6 +15,7 @@ from components.shared import (
     W,
     WEEKDAY_JP,
     fmt_currency,
+    nav_back,
     render_pill,
     section_header,
 )
@@ -56,6 +59,8 @@ if query_date > latest_available:
 idx = available_dates.index(query_date) if query_date in available_dates else -1
 prev_date = available_dates[idx - 1] if idx > 0 else None
 next_date = available_dates[idx + 1] if idx >= 0 and idx < len(available_dates) - 1 else None
+
+nav_back("← パイプライン", "pages/pipeline.py")
 
 st.title("日付詳細")
 with st.container(border=True):
@@ -133,7 +138,7 @@ with st.container(border=True):
 
             status_label, status_color, status_note = status_info
             with st.container(border=True):
-                h1, h2, h3, h4 = st.columns([2.0, 1.4, 3.0, 1.6])
+                h1, h2, h3, h4 = st.columns([2.2, 1.2, 3.2, 1.4])
                 with h1:
                     st.markdown(
                         f"**{mode_label}** {render_pill(status_label, status_color)}",
