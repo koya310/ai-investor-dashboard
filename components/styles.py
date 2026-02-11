@@ -83,13 +83,22 @@ h1, h2, h3 {
     box-shadow: var(--shadow-sm);
 }
 
-/* Metrics inside cards → flush (no double card) */
+/* Metrics inside cards → flush (no double card) — nuclear override */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"],
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"] *,
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"] > div,
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetricLabel"],
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetricValue"],
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetricDelta"] {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
 [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stMetric"] {
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    padding: 0.4rem 0.2rem;
-    box-shadow: none;
+    padding: 0.4rem 0.2rem !important;
 }
 
 [data-testid="stMetricLabel"] p {
