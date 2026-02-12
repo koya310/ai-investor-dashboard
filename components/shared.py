@@ -7,10 +7,14 @@ import streamlit as st
 
 logger = logging.getLogger(__name__)
 
-# ── カラーパレット ──
-P = "#2563eb"  # primary blue
-W = "#059669"  # win emerald (positive)
-L = "#dc2626"  # loss red (negative) — was #e11d48, now standard red
+# ── カラーパレット (Design System v2.0 — Dark Theme) ──
+P = "#6366f1"  # primary indigo (accent)
+W = "#22c55e"  # win green (profit/success)
+L = "#ef4444"  # loss red (negative/error)
+WARN = "#f59e0b"  # warning amber
+INFO = "#3b82f6"  # info blue
+TEXT_MUTED = "#71717a"  # muted text (Zinc-500)
+TEXT_SECONDARY = "#a1a1aa"  # secondary text (Zinc-400)
 
 # ── 曜日 ──
 WEEKDAY_JP = ["月", "火", "水", "木", "金", "土", "日"]
@@ -62,13 +66,13 @@ def color_for_status(status: str) -> str:
     """ステータス文字列から色を返す"""
     status_colors = {
         "completed": W,
-        "running": "#d97706",
+        "running": WARN,
         "failed": L,
         "ok": W,
-        "warn": "#d97706",
+        "warn": WARN,
         "ng": L,
     }
-    return status_colors.get(status, "#94a3b8")
+    return status_colors.get(status, TEXT_MUTED)
 
 
 # ── UI コンポーネント ──
@@ -92,8 +96,8 @@ def card_title(title: str, color: str = P, subtitle: str = "") -> None:
 def section_header(title: str, color: str = P, subtitle: str = "") -> None:
     """Legacy section header — kept for backward compat but prefer card_title."""
     subtitle_html = (
-        f'<span style="font-size:0.7rem;font-weight:600;color:#64748b;'
-        f'background:#f8fafc;border:1px solid #e8edf5;border-radius:9999px;'
+        f'<span style="font-size:0.7rem;font-weight:600;color:{TEXT_SECONDARY};'
+        f'background:#27272a;border:1px solid #3f3f46;border-radius:9999px;'
         f'padding:0.2rem 0.55rem">{subtitle}</span>'
         if subtitle
         else ""
@@ -104,7 +108,7 @@ def section_header(title: str, color: str = P, subtitle: str = "") -> None:
         f'<div style="display:flex;align-items:center;gap:0.55rem">'
         f'<span style="width:10px;height:10px;border-radius:9999px;'
         f'background:{color};box-shadow:0 0 0 4px {color}22"></span>'
-        f'<span style="font-size:1.0rem;font-weight:760;color:#0f172a;'
+        f'<span style="font-size:1.0rem;font-weight:760;color:#fafafa;'
         f'letter-spacing:-0.02em">{title}</span>'
         f"</div>"
         f"{subtitle_html}"
@@ -142,17 +146,18 @@ def status_dot_html(status: str) -> str:
 
 
 def status_badge(label: str, status: str) -> str:
-    """Status badge (dot + label pill). Returns raw HTML."""
+    """Status badge (dot + label pill). Returns raw HTML. Dark theme."""
+    # (text_color, bg_tint, border_color)
     configs = {
-        "completed": ("#059669", "#ecfdf5", "#d1fae5"),
-        "ok":        ("#059669", "#ecfdf5", "#d1fae5"),
-        "failed":    ("#dc2626", "#fef2f2", "#fecaca"),
-        "error":     ("#dc2626", "#fef2f2", "#fecaca"),
-        "skipped":   ("#d97706", "#fffbeb", "#fef3c7"),
-        "interrupted": ("#d97706", "#fffbeb", "#fef3c7"),
-        "warn":      ("#d97706", "#fffbeb", "#fef3c7"),
-        "pending":   ("#64748b", "#f8fafc", "#e2e8f0"),
-        "running":   ("#2563eb", "#eff6ff", "#bfdbfe"),
+        "completed": ("#4ade80", "#052e16", "#166534"),
+        "ok":        ("#4ade80", "#052e16", "#166534"),
+        "failed":    ("#f87171", "#450a0a", "#991b1b"),
+        "error":     ("#f87171", "#450a0a", "#991b1b"),
+        "skipped":   ("#fbbf24", "#451a03", "#92400e"),
+        "interrupted": ("#fbbf24", "#451a03", "#92400e"),
+        "warn":      ("#fbbf24", "#451a03", "#92400e"),
+        "pending":   ("#a1a1aa", "#27272a", "#3f3f46"),
+        "running":   ("#818cf8", "#1e1b4b", "#3730a3"),
     }
     text_c, bg_c, border_c = configs.get(status, configs["pending"])
     return (

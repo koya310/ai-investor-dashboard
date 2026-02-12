@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from components.shared import (
-    P, W, L,
+    P, W, L, TEXT_SECONDARY,
     fmt_currency, fmt_pct, fmt_delta,
     card_title, render_pill,
     load_common_data,
@@ -225,7 +225,7 @@ with grid_right:
                 with col_name:
                     st.markdown(
                         f"**{p['ticker']}**  "
-                        f'<span style="color:#94a3b8;font-size:0.8rem">'
+                        f'<span style="color:#a1a1aa;font-size:0.8rem">'
                         f'{p["shares"]}株</span>',
                         unsafe_allow_html=True,
                     )
@@ -248,8 +248,8 @@ with st.container(border=True):
 
     if len(daily) > 0:
         pnl = total_val - capital
-        fill_color = ("rgba(5,150,105,0.05)" if pnl >= 0
-                      else "rgba(220,38,38,0.04)")
+        fill_color = ("rgba(34,197,94,0.08)" if pnl >= 0
+                      else "rgba(239,68,68,0.06)")
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=daily["date"], y=[capital] * len(daily),
@@ -264,14 +264,14 @@ with st.container(border=True):
         fig.add_trace(go.Scatter(
             x=daily["date"], y=daily["total"],
             name="ポートフォリオ", mode="lines+markers",
-            line=dict(color=P, width=2.5), marker=dict(size=4, color=P),
+            line=dict(color="#6366f1", width=2.5), marker=dict(size=4, color="#6366f1"),
             hovertemplate="%{x|%m/%d}  $%{y:,.0f}<extra></extra>",
         ))
         if len(spy) > 0:
             fig.add_trace(go.Scatter(
                 x=spy["date"], y=spy["spy_total"],
                 name="SPY", mode="lines",
-                line=dict(color="#a3a3a3", width=1.2, dash="dot"),
+                line=dict(color="#71717a", width=1.2, dash="dot"),
                 hovertemplate="%{x|%m/%d}  SPY $%{y:,.0f}<extra></extra>",
             ))
 
@@ -290,8 +290,8 @@ with st.container(border=True):
                 fig.add_trace(go.Scatter(
                     x=merged["date"], y=merged["total"], name="買い",
                     mode="markers",
-                    marker=dict(symbol="triangle-up", size=10, color=W,
-                                line=dict(width=1, color="#fff")),
+                    marker=dict(symbol="triangle-up", size=10, color="#22c55e",
+                                line=dict(width=1, color="#18181b")),
                     hovertemplate="%{x|%m/%d} 買い %{text}<extra></extra>",
                     text=merged["ticker"], showlegend=False,
                 ))
@@ -311,37 +311,40 @@ with st.container(border=True):
                 fig.add_trace(go.Scatter(
                     x=merged["date"], y=merged["total"], name="売り",
                     mode="markers",
-                    marker=dict(symbol="triangle-down", size=10, color=L,
-                                line=dict(width=1, color="#fff")),
+                    marker=dict(symbol="triangle-down", size=10, color="#ef4444",
+                                line=dict(width=1, color="#18181b")),
                     hovertemplate="%{x|%m/%d} 売り %{text}<extra></extra>",
                     text=merged["ticker"], showlegend=False,
                 ))
 
-        fig.add_hline(y=capital, line_dash="dot", line_color="#cbd5e1", line_width=1)
+        fig.add_hline(y=capital, line_dash="dot", line_color="#3f3f46", line_width=1)
         fig.update_layout(
-            template="plotly_white", height=260,
-            margin=dict(t=8, b=24, l=50, r=16),
+            height=320,
+            margin=dict(l=0, r=0, t=24, b=0),
+            plot_bgcolor="#18181b",
+            paper_bgcolor="#18181b",
+            font=dict(family="Inter, sans-serif", color="#a1a1aa", size=12),
             xaxis=dict(
-                title="", gridcolor="#f1f5f9", linecolor="#e2e8f0",
-                tickfont=dict(size=10, color="#94a3b8"),
+                title="", gridcolor="#27272a", linecolor="#3f3f46",
+                tickfont=dict(size=11, color="#71717a"), showgrid=True,
             ),
             yaxis=dict(
-                title="", tickprefix="$", tickformat=",",
-                gridcolor="#f1f5f9", linecolor="#e2e8f0",
-                tickfont=dict(size=10, color="#94a3b8"),
+                title="", tickprefix="$", tickformat=",.0f",
+                gridcolor="#27272a", linecolor="#3f3f46",
+                tickfont=dict(size=11, color="#71717a"), showgrid=True,
             ),
             legend=dict(
                 orientation="h", yanchor="bottom", y=1.02,
                 xanchor="right", x=1,
-                font=dict(size=10, color="#64748b"),
+                font=dict(size=11, color="#a1a1aa"),
             ),
-            font=dict(family="Inter, Hiragino Kaku Gothic ProN, sans-serif",
-                      size=11),
-            plot_bgcolor="white", paper_bgcolor="white",
-            hoverlabel=dict(bgcolor="#1e293b",
-                            font=dict(color="#f8fafc", size=11)),
+            hovermode="x unified",
+            hoverlabel=dict(
+                bgcolor="#27272a", bordercolor="#3f3f46",
+                font=dict(color="#fafafa", size=12),
+            ),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, theme=None)
     else:
         st.info("資産推移データがありません。")
 
@@ -498,7 +501,7 @@ with st.container(border=True):
                     with col_info:
                         st.markdown(
                             f"**{ticker}** {render_pill(label, label_color)}  "
-                            f'<span style="color:#94a3b8;font-size:0.8rem">'
+                            f'<span style="color:#a1a1aa;font-size:0.8rem">'
                             f"{shares}株 · ${t['entry_price']:.2f} → "
                             f"${t['exit_price']:.2f} · {ed}→{xd}{hd_str}</span>",
                             unsafe_allow_html=True,
@@ -515,7 +518,7 @@ with st.container(border=True):
                     with col_info:
                         st.markdown(
                             f"**{ticker}** {render_pill('OPEN', P)}  "
-                            f'<span style="color:#94a3b8;font-size:0.8rem">'
+                            f'<span style="color:#a1a1aa;font-size:0.8rem">'
                             f"{shares}株 @ ${t['entry_price']:.2f} · {ed}〜</span>",
                             unsafe_allow_html=True,
                         )

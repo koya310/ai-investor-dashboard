@@ -138,7 +138,7 @@ with st.container(border=True):
             else:
                 st.markdown(
                     '<div style="width:28px;height:28px;border-radius:50%;'
-                    'background:#e2e8f0;color:#64748b;display:flex;'
+                    'background:#27272a;color:#a1a1aa;display:flex;'
                     'align-items:center;justify-content:center;'
                     f'font-size:0.8rem;font-weight:700">'
                     f'{i + 1}</div>',
@@ -174,7 +174,7 @@ with st.container(border=True):
                 st.markdown(f"**{count_str}**")
             else:
                 st.markdown(
-                    f'<span style="color:#cbd5e1">{count_str}</span>',
+                    f'<span style="color:#52525b">{count_str}</span>',
                     unsafe_allow_html=True,
                 )
             if time_str:
@@ -400,7 +400,7 @@ with st.expander("ニュース・分析活用（直近14日）", expanded=False)
                 y=flow_df["news"],
                 name="ニュース",
                 marker_color="#8b5cf6",
-                opacity=0.7,
+                opacity=0.8,
             )
         )
         fig_flow.add_trace(
@@ -408,8 +408,8 @@ with st.expander("ニュース・分析活用（直近14日）", expanded=False)
                 x=flow_df["date"],
                 y=flow_df["analysis"],
                 name="AI分析",
-                marker_color="#2563eb",
-                opacity=0.7,
+                marker_color="#6366f1",
+                opacity=0.8,
             )
         )
         fig_flow.add_trace(
@@ -418,37 +418,41 @@ with st.expander("ニュース・分析活用（直近14日）", expanded=False)
                 y=flow_df["signals"],
                 name="シグナル",
                 mode="lines+markers",
-                line=dict(color="#059669", width=2),
+                line=dict(color="#22c55e", width=2),
                 marker=dict(size=6),
             )
         )
         fig_flow.update_layout(
             height=200,
             margin=dict(l=0, r=0, t=25, b=0),
+            plot_bgcolor="#18181b",
+            paper_bgcolor="#18181b",
+            font=dict(family="Inter, sans-serif", color="#a1a1aa", size=11),
             legend=dict(
                 orientation="h",
                 yanchor="top",
                 y=1.15,
                 xanchor="center",
                 x=0.5,
-                font=dict(size=11),
+                font=dict(size=11, color="#a1a1aa"),
             ),
-            plot_bgcolor="white",
-            paper_bgcolor="white",
-            xaxis=dict(showgrid=False, tickfont=dict(size=10)),
+            xaxis=dict(
+                showgrid=False,
+                tickfont=dict(size=10, color="#71717a"),
+            ),
             yaxis=dict(
                 showgrid=True,
-                gridcolor="#f1f5f9",
-                tickfont=dict(size=10),
+                gridcolor="#27272a",
+                tickfont=dict(size=10, color="#71717a"),
             ),
             barmode="group",
             bargap=0.3,
-            font=dict(
-                family="Inter, Hiragino Kaku Gothic ProN, sans-serif",
-                size=11,
+            hoverlabel=dict(
+                bgcolor="#27272a", bordercolor="#3f3f46",
+                font=dict(color="#fafafa", size=12),
             ),
         )
-        st.plotly_chart(fig_flow, use_container_width=True)
+        st.plotly_chart(fig_flow, use_container_width=True, theme=None)
 
     nu_col1, nu_col2 = st.columns(2)
     with nu_col1:

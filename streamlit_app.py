@@ -36,7 +36,7 @@ nav = st.navigation(
 with st.sidebar:
     st.markdown(
         '<div style="font-size:1.1rem;font-weight:800;letter-spacing:-0.03em;'
-        'color:#0f172a;margin-bottom:0.15rem">AI Investor</div>',
+        'color:#fafafa;margin-bottom:0.15rem">AI Investor</div>',
         unsafe_allow_html=True,
     )
     st.caption("Phase 3 Paper Trading Monitor")

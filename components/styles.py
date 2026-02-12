@@ -1,20 +1,16 @@
-"""Dashboard styles — bulletproof card-first design for Streamlit Cloud.
+"""Dashboard styles — Dark-theme financial dashboard (Design System v2.0).
 
-CRITICAL: Font loading is separated from CSS to prevent @import failures
-from breaking the entire style block. This is the #1 cause of card
-rendering failures on Streamlit Cloud.
+Based on: Bloomberg Terminal, TradingView, shadcn/ui (Zinc scale).
+Font loading via <link> tag to prevent @import CSS block failures.
 """
 
 import streamlit as st
 
 
 def inject_css():
-    """Inject styles in TWO steps: font link + CSS rules.
+    """Inject styles: font <link> + dark-theme <style>."""
 
-    Step 1: <link> for Google Fonts (non-blocking, fails gracefully)
-    Step 2: <style> for all CSS rules (guaranteed to load)
-    """
-    # ── Step 1: Font — separate from CSS so failures don't cascade ──
+    # ── Step 1: Font (separate, non-blocking) ──
     st.markdown(
         '<link href="https://fonts.googleapis.com/css2?'
         'family=Inter:wght@400;500;600;700;800&display=swap" '
@@ -22,12 +18,10 @@ def inject_css():
         unsafe_allow_html=True,
     )
 
-    # ── Step 2: All CSS — no @import, guaranteed to parse ──
+    # ── Step 2: All CSS ──
     st.markdown(
         """<style>
-/* ══════════════════════════════════════════════
-   GLOBAL
-   ══════════════════════════════════════════════ */
+/* ═══════ GLOBAL ═══════ */
 
 html, body, [class*="css"], [class*="st-"] {
     font-family: "Inter", -apple-system, BlinkMacSystemFont,
@@ -35,138 +29,128 @@ html, body, [class*="css"], [class*="st-"] {
     -webkit-font-smoothing: antialiased !important;
 }
 
-.stApp {
-    background-color: #f1f5f9 !important;
+section.stMain .block-container {
+    padding: 1.5rem 2rem 3rem !important;
+    max-width: 100% !important;
 }
 
-.block-container {
-    padding: 2rem 2rem 3rem !important;
-    max-width: 1080px !important;
+header[data-testid="stHeader"] {
+    background-color: #09090b !important;
 }
 
-/* ══════════════════════════════════════════════
-   CARDS — st.container(border=True)
-   Multi-selector targeting for Streamlit Cloud.
-   ══════════════════════════════════════════════ */
+/* ═══════ CARDS — st.container(border=True) ═══════ */
 
-/* Wrapper element */
 [data-testid="stVerticalBlockBorderWrapper"] {
-    background-color: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 14px !important;
-    padding: 1.5rem 1.75rem !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06),
-                0 1px 2px rgba(0,0,0,0.03) !important;
+    background-color: #18181b !important;
+    border: 1px solid #27272a !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3),
+                0 1px 2px rgba(0,0,0,0.2) !important;
     margin-bottom: 1rem !important;
     overflow: visible !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Inner div (Streamlit places border here in some versions) */
+[data-testid="stVerticalBlockBorderWrapper"]:hover {
+    border-color: #3f3f46 !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+}
+
 [data-testid="stVerticalBlockBorderWrapper"] > div:first-child {
-    background-color: #ffffff !important;
+    background-color: #18181b !important;
     border: none !important;
-    border-radius: 14px !important;
+    border-radius: 12px !important;
     box-shadow: none !important;
 }
 
-/* Nested cards — subtle flat bg */
+/* Nested cards */
 [data-testid="stVerticalBlockBorderWrapper"]
   [data-testid="stVerticalBlockBorderWrapper"] {
-    background-color: #f8fafc !important;
-    border: 1px solid #f1f5f9 !important;
+    background-color: #27272a !important;
+    border: 1px solid #3f3f46 !important;
     border-radius: 10px !important;
-    padding: 1rem 1.25rem !important;
     box-shadow: none !important;
     margin-bottom: 0.5rem !important;
 }
 
 [data-testid="stVerticalBlockBorderWrapper"]
   [data-testid="stVerticalBlockBorderWrapper"] > div:first-child {
-    background-color: #f8fafc !important;
-    border: none !important;
+    background-color: #27272a !important;
 }
 
-/* ══════════════════════════════════════════════
-   TYPOGRAPHY
-   ══════════════════════════════════════════════ */
+/* ═══════ TYPOGRAPHY ═══════ */
 
 h1 {
-    font-size: 1.3rem !important;
-    font-weight: 800 !important;
-    letter-spacing: -0.03em !important;
-    color: #0f172a !important;
-    margin-bottom: 0.5rem !important;
-    padding-bottom: 0 !important;
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+    color: #fafafa !important;
 }
 
 h2, h3 {
     font-weight: 700 !important;
     letter-spacing: -0.02em !important;
-    color: #0f172a !important;
+    color: #fafafa !important;
 }
 
-/* Tabular nums for financial data */
 [data-testid="stMetricValue"] > div,
 .hero-value,
 .tabular-nums {
     font-variant-numeric: tabular-nums !important;
 }
 
-/* ══════════════════════════════════════════════
-   METRICS — transparent on card bg
-   ══════════════════════════════════════════════ */
+/* ═══════ METRICS ═══════ */
 
-[data-testid="stMetric"] {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0.25rem 0 !important;
+div[data-testid="metric-container"] {
+    background-color: #18181b !important;
+    border: 1px solid #27272a !important;
+    border-radius: 12px !important;
+    padding: 14px 18px !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+    transition: border-color 0.2s ease !important;
+}
+
+div[data-testid="metric-container"]:hover {
+    border-color: #3f3f46 !important;
 }
 
 [data-testid="stMetricLabel"] p {
-    color: #64748b !important;
-    font-size: 0.68rem !important;
+    color: #a1a1aa !important;
+    font-size: 0.75rem !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.06em !important;
+    letter-spacing: 0.05em !important;
     font-weight: 600 !important;
-    margin-bottom: 0.1rem !important;
 }
 
 [data-testid="stMetricValue"] > div {
-    font-size: 1.15rem !important;
+    font-size: 1.75rem !important;
     font-weight: 700 !important;
-    letter-spacing: -0.02em !important;
-    color: #0f172a !important;
+    letter-spacing: -0.01em !important;
+    color: #fafafa !important;
     line-height: 1.3 !important;
 }
 
 [data-testid="stMetricDelta"] {
-    font-size: 0.7rem !important;
+    font-size: 0.75rem !important;
 }
 
-/* ══════════════════════════════════════════════
-   DIVIDERS
-   ══════════════════════════════════════════════ */
+/* ═══════ DIVIDERS ═══════ */
 
 hr {
-    margin: 0.6rem 0 !important;
+    margin: 0.75rem 0 !important;
     border: none !important;
-    border-top: 1px solid #f1f5f9 !important;
+    border-top: 1px solid #27272a !important;
 }
 
-/* ══════════════════════════════════════════════
-   CAPTIONS
-   ══════════════════════════════════════════════ */
+/* ═══════ CAPTIONS ═══════ */
 
 [data-testid="stCaptionContainer"] p {
-    font-size: 0.72rem !important;
+    font-size: 0.75rem !important;
     line-height: 1.5 !important;
-    color: #94a3b8 !important;
+    color: #71717a !important;
 }
 
-/* ══════════════════════════════════════════════
-   ALERTS
-   ══════════════════════════════════════════════ */
+/* ═══════ ALERTS ═══════ */
 
 [data-testid="stAlert"] {
     border-radius: 10px !important;
@@ -175,111 +159,107 @@ hr {
     margin: 0.3rem 0 !important;
 }
 
-/* ══════════════════════════════════════════════
-   PROGRESS
-   ══════════════════════════════════════════════ */
+/* ═══════ PROGRESS ═══════ */
 
 [data-testid="stProgress"] > div > div {
     height: 6px !important;
     border-radius: 3px !important;
 }
 
-/* ══════════════════════════════════════════════
-   SIDEBAR
-   ══════════════════════════════════════════════ */
+/* ═══════ SIDEBAR ═══════ */
 
-[data-testid="stSidebar"] {
-    background-color: #ffffff !important;
-    border-right: 1px solid #e2e8f0 !important;
+section[data-testid="stSidebar"] {
+    background-color: #0f0f12 !important;
+    border-right: 1px solid #27272a !important;
 }
 
-[data-testid="stSidebar"] [data-testid="stMetricValue"] > div {
+section[data-testid="stSidebar"] [data-testid="stMetricValue"] > div {
     font-size: 1.5rem !important;
 }
 
-/* ══════════════════════════════════════════════
-   EXPANDERS
-   ══════════════════════════════════════════════ */
+/* ═══════ EXPANDERS ═══════ */
 
 [data-testid="stExpander"] {
-    background-color: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 14px !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
+    background-color: #18181b !important;
+    border: 1px solid #27272a !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
     margin-bottom: 1rem !important;
 }
 
 details summary {
     font-size: 0.82rem !important;
     font-weight: 600 !important;
-    color: #334155 !important;
+    color: #a1a1aa !important;
 }
 
-/* ══════════════════════════════════════════════
-   TABS
-   ══════════════════════════════════════════════ */
+/* ═══════ TABS ═══════ */
 
-[data-testid="stTabs"] [role="tablist"] {
-    gap: 0.35rem !important;
-    margin-bottom: 0.5rem !important;
+.stTabs [data-baseweb="tab-list"] {
+    gap: 4px !important;
+    background-color: transparent !important;
+    border-bottom: 1px solid #27272a !important;
 }
 
-[data-testid="stTabs"] [role="tab"] {
-    background: #f8fafc !important;
-    border: 1px solid #e2e8f0 !important;
-    border-radius: 9999px !important;
-    padding: 0.35rem 0.75rem !important;
-    font-size: 0.78rem !important;
+.stTabs [data-baseweb="tab"] {
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 8px 8px 0 0 !important;
+    color: #a1a1aa !important;
+    font-weight: 500 !important;
+    font-size: 0.82rem !important;
+    padding: 8px 20px !important;
+    transition: all 0.2s ease !important;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    background-color: rgba(99,102,241,0.06) !important;
+    color: #fafafa !important;
+}
+
+.stTabs [aria-selected="true"] {
+    background-color: rgba(99,102,241,0.1) !important;
+    color: #6366f1 !important;
     font-weight: 600 !important;
 }
 
-[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
-    border-color: #bfdbfe !important;
-    background: #eff6ff !important;
-    color: #2563eb !important;
+.stTabs [data-baseweb="tab-highlight"] {
+    background-color: #6366f1 !important;
 }
 
-/* ══════════════════════════════════════════════
-   BUTTONS
-   ══════════════════════════════════════════════ */
+/* ═══════ BUTTONS ═══════ */
 
 .stButton > button {
     border-radius: 8px !important;
-    border: 1px solid #e2e8f0 !important;
-    background: #ffffff !important;
-    color: #334155 !important;
+    border: 1px solid #27272a !important;
+    background: #18181b !important;
+    color: #fafafa !important;
     font-weight: 600 !important;
-    font-size: 0.8rem !important;
+    font-size: 0.82rem !important;
     transition: all 0.15s ease !important;
 }
 
 .stButton > button:hover {
-    border-color: #cbd5e1 !important;
-    background: #f8fafc !important;
+    border-color: #3f3f46 !important;
+    background: #27272a !important;
 }
 
-/* ══════════════════════════════════════════════
-   DATAFRAMES
-   ══════════════════════════════════════════════ */
+/* ═══════ DATAFRAMES ═══════ */
 
 [data-testid="stDataFrame"] {
-    border: 1px solid #e2e8f0 !important;
+    border: 1px solid #27272a !important;
     border-radius: 8px !important;
     overflow: hidden !important;
 }
 
-/* ══════════════════════════════════════════════
-   DIALOGS
-   ══════════════════════════════════════════════ */
+/* ═══════ DIALOGS ═══════ */
 
 [data-testid="stDialog"] {
     min-width: 760px !important;
     border-radius: 14px !important;
 }
 
-/* ══════════════════════════════════════════════
-   CUSTOM COMPONENTS
-   ══════════════════════════════════════════════ */
+/* ═══════ CUSTOM COMPONENTS ═══════ */
 
 .card-title {
     display: flex;
@@ -289,10 +269,9 @@ details summary {
 }
 
 .card-title-text {
-    font-size: 0.88rem;
+    font-size: 0.875rem;
     font-weight: 700;
-    color: #0f172a;
-    letter-spacing: -0.01em;
+    color: #fafafa;
 }
 
 .card-title .accent-dot {
@@ -304,33 +283,31 @@ details summary {
 }
 
 .card-subtitle {
-    font-size: 0.68rem;
+    font-size: 0.7rem;
     font-weight: 600;
-    color: #64748b;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    color: #a1a1aa;
+    background: #27272a;
+    border: 1px solid #3f3f46;
     border-radius: 9999px;
     padding: 0.12rem 0.5rem;
     margin-left: auto;
 }
 
-/* Hero value */
 .hero-value {
-    font-size: 2.2rem;
+    font-size: 2.25rem;
     font-weight: 800;
-    color: #0f172a;
-    letter-spacing: -1.5px;
+    color: #fafafa;
+    letter-spacing: -0.03em;
     line-height: 1.05;
     margin: 0.15rem 0 0.35rem;
 }
 
-/* Section label (uppercase) */
 .section-label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #a1a1aa;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.05em;
     margin: 0.4rem 0 0.35rem;
 }
 
@@ -342,18 +319,18 @@ details summary {
     border-radius: 50%;
     vertical-align: middle;
 }
-.status-dot--ok     { background: #059669; box-shadow: 0 0 0 2px rgba(5,150,105,0.15); }
-.status-dot--warn   { background: #d97706; box-shadow: 0 0 0 2px rgba(217,119,6,0.15); }
-.status-dot--fail   { background: #dc2626; box-shadow: 0 0 0 2px rgba(220,38,38,0.15); }
-.status-dot--none   { background: #e2e8f0; }
-.status-dot--active { background: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
+.status-dot--ok     { background: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,0.3); }
+.status-dot--warn   { background: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,0.3); }
+.status-dot--fail   { background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,0.3); }
+.status-dot--none   { background: #71717a; }
+.status-dot--active { background: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.3); }
 
 /* Dialog helpers */
 .dlg-section {
     font-size: 0.85rem;
     font-weight: 700;
-    color: #0f172a;
-    border-bottom: 2px solid #e2e8f0;
+    color: #fafafa;
+    border-bottom: 2px solid #27272a;
     padding-bottom: 0.3rem;
     margin: 1rem 0 0.5rem;
 }
@@ -363,32 +340,39 @@ details summary {
     justify-content: space-between;
     padding: 0.25rem 0;
     font-size: 0.82rem;
-    border-bottom: 1px solid #f8fafc;
+    border-bottom: 1px solid #27272a;
 }
 
-.dlg-key { color: #64748b; }
-.dlg-val { font-weight: 600; color: #0f172a; font-variant-numeric: tabular-nums; }
+.dlg-key { color: #a1a1aa; }
+.dlg-val { font-weight: 600; color: #fafafa; font-variant-numeric: tabular-nums; }
 
-.c-pos { color: #059669; font-weight: 600; }
-.c-neg { color: #dc2626; font-weight: 600; }
+.c-pos { color: #22c55e; font-weight: 600; }
+.c-neg { color: #ef4444; font-weight: 600; }
 
-/* ══════════════════════════════════════════════
-   RESPONSIVE
-   ══════════════════════════════════════════════ */
+/* ═══════ SCROLLBAR ═══════ */
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #09090b; }
+::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+/* ═══════ HIDE BRANDING ═══════ */
+
+#MainMenu { visibility: hidden; }
+footer { visibility: hidden; }
+
+/* ═══════ RESPONSIVE ═══════ */
 
 @media (max-width: 768px) {
-    .block-container {
+    section.stMain .block-container {
         padding: 1rem 0.75rem 2rem !important;
     }
     .hero-value { font-size: 1.6rem !important; }
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        padding: 1rem 1.25rem !important;
-    }
 }
 
 @media (max-width: 480px) {
     .hero-value { font-size: 1.3rem !important; }
-    [data-testid="stMetricValue"] > div { font-size: 1rem !important; }
+    [data-testid="stMetricValue"] > div { font-size: 1.2rem !important; }
 }
 </style>""",
         unsafe_allow_html=True,

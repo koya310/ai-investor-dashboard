@@ -262,10 +262,10 @@ with grid_right:
                     final_color = P
                 elif has_news:
                     final_label = "ニュースのみ"
-                    final_color = "#64748b"
+                    final_color = "#71717a"
                 else:
                     final_label = "データなし"
-                    final_color = "#64748b"
+                    final_color = "#71717a"
 
                 st.markdown(
                     f"**{ticker}** "
