@@ -588,17 +588,29 @@ def get_manual_holdings() -> list[dict]:
 # ============================================================
 
 
+def _get_secret(name: str, default: str = "") -> str:
+    """Streamlit secrets → 環境変数 の優先順でシークレットを取得"""
+    try:
+        import streamlit as st
+
+        if hasattr(st, "secrets") and name in st.secrets:
+            return str(st.secrets[name])
+    except Exception:
+        pass
+    return os.getenv(name, default)
+
+
 def _get_alpaca_client():
     """Alpaca TradingClient を取得（シングルトン的にキャッシュ）"""
     try:
         from alpaca.trading.client import TradingClient
 
-        key = os.getenv("ALPACA_API_KEY")
-        secret = os.getenv("ALPACA_SECRET_KEY")
-        base_url = os.getenv("ALPACA_BASE_URL", "")
+        key = _get_secret("ALPACA_API_KEY")
+        secret = _get_secret("ALPACA_SECRET_KEY")
+        base_url = _get_secret("ALPACA_BASE_URL")
         if not key or not secret:
             return None
-        is_paper = "paper" in base_url.lower()
+        is_paper = "paper" in base_url.lower() if base_url else True
         return TradingClient(api_key=key, secret_key=secret, paper=is_paper)
     except Exception as e:
         logger.warning(f"Alpaca client init failed: {e}")
