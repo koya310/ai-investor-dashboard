@@ -9,6 +9,7 @@ ROW 3: Detail data tabs
 
 import logging
 from datetime import date, datetime
+from pathlib import Path
 
 import dashboard_data as _dm
 import streamlit as st
@@ -27,6 +28,10 @@ from components.shared import (
 )
 
 logger = logging.getLogger(__name__)
+
+SPEC_DOC_RELATIVE_PATH = (
+    "01_docs/02_user/20_operations/12_dashboard_date_detail_spec.md"
+)
 
 
 def _as_date(s: str | None, fallback: date) -> date:
@@ -55,6 +60,30 @@ def _hm(ts: str) -> str:
 def _set_date_query(d: date) -> None:
     st.query_params["date"] = d.isoformat()
     st.rerun()
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _load_detail_spec_markdown() -> tuple[str, str]:
+    """Load detail spec markdown from monorepo path or dashboard-local fallback."""
+    here = Path(__file__).resolve()
+    candidates = [
+        # Monorepo path (this repository)
+        here.parents[3] / SPEC_DOC_RELATIVE_PATH,
+        # Standalone dashboard repo fallback (Streamlit Cloud deploy)
+        here.parents[1] / "SYSTEM_SPEC.md",
+    ]
+
+    for path in candidates:
+        if not path.exists():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if text:
+            return text, str(path)
+
+    return "", ""
 
 
 available_str = _dm.get_available_log_dates(365)
@@ -404,3 +433,30 @@ with st.container(border=True):
             )
         else:
             st.info("取引なし")
+
+
+# ============================================================
+# ROW 4: 詳細仕様（Markdown全文）
+# ============================================================
+
+with st.container(border=True):
+    card_title("詳細仕様", color=P, subtitle="Markdown全文")
+    spec_text, spec_path = _load_detail_spec_markdown()
+
+    if not spec_text:
+        st.warning(
+            "仕様Markdownが見つかりません。"
+            " `01_docs/02_user/20_operations/12_dashboard_date_detail_spec.md` "
+            "または `SYSTEM_SPEC.md` を確認してください。"
+        )
+    else:
+        st.caption(f"参照元: `{spec_path}`")
+        st.download_button(
+            "仕様Markdownをダウンロード",
+            data=spec_text,
+            file_name=Path(spec_path).name if spec_path else "detail_spec.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
+        with st.expander("詳細仕様を表示", expanded=False):
+            st.markdown(spec_text)
